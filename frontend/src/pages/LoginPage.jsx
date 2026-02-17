@@ -159,6 +159,8 @@ export default function LoginPage() {
             <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials:</p>
             <p className="text-xs text-blue-700">Admin: admin@fieldflow.com / admin123</p>
             <p className="text-xs text-blue-700">Worker: worker@fieldflow.com / worker123</p>
+            <p className="text-xs text-blue-700">Branch: branch@fieldflow.com / branch123</p>
+            <p className="text-xs text-blue-700">CRE: cre@fieldflow.com / cre123</p>
           </div>
         </div>
       </div>
