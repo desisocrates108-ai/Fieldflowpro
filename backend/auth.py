@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 
@@ -63,6 +63,15 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return payload
 
 def require_roles(*allowed_roles):
+    """
+    Role-based access control decorator.
+    
+    Roles hierarchy:
+    - admin: Full access to everything
+    - cre: Same as admin but cannot manage users/settings
+    - worker: Can only access own data (coupons, attendance)
+    - branch: Limited access, masked mobile numbers
+    """
     async def role_checker(current_user: dict = Depends(get_current_user)):
         user_role = current_user.get("role")
         if user_role not in allowed_roles:
@@ -72,3 +81,68 @@ def require_roles(*allowed_roles):
             )
         return current_user
     return role_checker
+
+# Role permission definitions
+ROLE_PERMISSIONS = {
+    "admin": {
+        "can_view_full_mobile": True,
+        "can_manage_users": True,
+        "can_manage_settings": True,
+        "can_export_data": True,
+        "can_view_all_coupons": True,
+        "can_view_audit_logs": True,
+        "can_assign_branches": True,
+    },
+    "cre": {
+        "can_view_full_mobile": True,
+        "can_manage_users": False,
+        "can_manage_settings": False,
+        "can_export_data": True,
+        "can_view_all_coupons": True,
+        "can_view_audit_logs": True,
+        "can_assign_branches": False,
+    },
+    "worker": {
+        "can_view_full_mobile": True,  # Only own coupons
+        "can_manage_users": False,
+        "can_manage_settings": False,
+        "can_export_data": False,
+        "can_view_all_coupons": False,  # Only own
+        "can_view_audit_logs": False,
+        "can_assign_branches": False,
+    },
+    "branch": {
+        "can_view_full_mobile": False,  # Only last 4 digits
+        "can_manage_users": False,
+        "can_manage_settings": False,
+        "can_export_data": False,
+        "can_view_all_coupons": False,  # Only assigned
+        "can_view_audit_logs": False,
+        "can_assign_branches": False,
+    },
+}
+
+def get_role_permissions(role: str) -> dict:
+    """Get permissions for a specific role"""
+    return ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["worker"])
+
+def can_view_full_mobile(role: str) -> bool:
+    """Check if role can view full mobile numbers"""
+    return ROLE_PERMISSIONS.get(role, {}).get("can_view_full_mobile", False)
+
+def mask_mobile(phone: str) -> str:
+    """
+    Mask mobile number showing only last 4 digits.
+    Example: 1234567890 -> XXXXXX7890
+    """
+    if not phone or len(phone) < 4:
+        return "XXXX"
+    return "X" * (len(phone) - 4) + phone[-4:]
+
+def get_last4_digits(phone: str) -> str:
+    """Extract last 4 digits of phone number"""
+    if not phone or len(phone) < 4:
+        return phone or ""
+    # Remove any non-digit characters first
+    digits = ''.join(filter(str.isdigit, phone))
+    return digits[-4:] if len(digits) >= 4 else digits

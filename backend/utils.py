@@ -1,8 +1,11 @@
 import secrets
 import string
+import base64
+import hashlib
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from typing import Dict, Optional
 import math
+import re
 
 # In-memory OTP storage (for MVP - use Redis in production)
 otp_storage: Dict[str, dict] = {}
@@ -12,8 +15,16 @@ def generate_coupon_code(area_id: str, worker_id: str) -> str:
     Generate unique coupon code in format: SVL-AREAID-WORKERID-RANDOM6
     Example: SVL-VAL-102-A7K9D2
     """
+    # Clean and format area_id (take first 3 chars, uppercase)
+    area_part = re.sub(r'[^A-Za-z0-9]', '', area_id)[:3].upper() or "DEF"
+    
+    # Take last 3 chars of worker_id for uniqueness
+    worker_part = worker_id[-3:].upper()
+    
+    # Generate random 6 character alphanumeric
     random_suffix = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    return f"SVL-{area_id[:3].upper()}-{worker_id[:3].upper()}-{random_suffix}"
+    
+    return f"SVL-{area_part}-{worker_part}-{random_suffix}"
 
 def generate_otp(length: int = 6) -> str:
     """Generate a numeric OTP"""
@@ -98,3 +109,77 @@ def serialize_datetime(obj):
     if isinstance(obj, datetime):
         return obj.isoformat()
     return obj
+
+# ========== Basic Encryption for Mobile Numbers (MVP) ==========
+# Note: For production, use proper AES-256 encryption with secure key management
+
+ENCRYPTION_KEY = "fieldflow-mobile-key-2024"  # Change in production
+
+def _get_encryption_key() -> bytes:
+    """Get encryption key as bytes"""
+    return hashlib.sha256(ENCRYPTION_KEY.encode()).digest()
+
+def encrypt_mobile(phone: str) -> str:
+    """
+    Basic encryption for mobile numbers.
+    For MVP: Uses simple XOR + base64 encoding
+    For Production: Use AES-256 with proper key management
+    """
+    if not phone:
+        return ""
+    
+    key = _get_encryption_key()
+    encrypted = bytes([ord(c) ^ key[i % len(key)] for i, c in enumerate(phone)])
+    return base64.b64encode(encrypted).decode('utf-8')
+
+def decrypt_mobile(encrypted_phone: str) -> str:
+    """
+    Decrypt mobile number.
+    """
+    if not encrypted_phone:
+        return ""
+    
+    try:
+        key = _get_encryption_key()
+        encrypted = base64.b64decode(encrypted_phone.encode('utf-8'))
+        decrypted = ''.join([chr(b ^ key[i % len(key)]) for i, b in enumerate(encrypted)])
+        return decrypted
+    except Exception:
+        # If decryption fails, return original (might be unencrypted)
+        return encrypted_phone
+
+def normalize_phone(phone: str) -> str:
+    """
+    Normalize phone number to standard format.
+    Removes spaces, dashes, and ensures +91 prefix for Indian numbers.
+    """
+    if not phone:
+        return ""
+    
+    # Remove all non-digit characters except +
+    cleaned = re.sub(r'[^\d+]', '', phone)
+    
+    # If starts with +, keep it
+    if cleaned.startswith('+'):
+        return cleaned
+    
+    # If 10 digits, assume Indian number
+    if len(cleaned) == 10:
+        return f"+91{cleaned}"
+    
+    return cleaned
+
+def validate_phone(phone: str) -> bool:
+    """Validate phone number format"""
+    normalized = normalize_phone(phone)
+    # Check if it's a valid format (10-15 digits with optional +)
+    if normalized.startswith('+'):
+        return 10 <= len(normalized[1:]) <= 15
+    return 10 <= len(normalized) <= 15
+
+def validate_customer_name(name: str) -> bool:
+    """Validate customer name - only letters, spaces, and basic punctuation"""
+    if not name or len(name) < 2:
+        return False
+    # Allow letters, spaces, dots, and hyphens
+    return bool(re.match(r'^[A-Za-z\s.\-]+$', name))
