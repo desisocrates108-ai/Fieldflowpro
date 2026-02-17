@@ -77,6 +77,19 @@ export const AuthProvider = ({ children }) => {
     return roles.includes(user.role);
   };
 
+  // Check specific permissions
+  const canViewFullMobile = () => {
+    return user && ['admin', 'cre', 'worker'].includes(user.role);
+  };
+
+  const canManageUsers = () => {
+    return user && user.role === 'admin';
+  };
+
+  const canExportData = () => {
+    return user && ['admin', 'cre'].includes(user.role);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -87,6 +100,9 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         hasRole,
+        canViewFullMobile,
+        canManageUsers,
+        canExportData,
       }}
     >
       {children}
