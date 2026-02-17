@@ -35,10 +35,13 @@ export default function LoginPage() {
         case 'admin':
           navigate('/admin');
           break;
+        case 'cre':
+          navigate('/cre');
+          break;
         case 'worker':
           navigate('/worker');
           break;
-        case 'branch_manager':
+        case 'branch':
           navigate('/branch');
           break;
         default:
