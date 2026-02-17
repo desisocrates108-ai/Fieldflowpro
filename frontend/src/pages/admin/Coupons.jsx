@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import Layout from '../../components/Layout';
 import { couponAPI } from '../../lib/api';
-import { Card, CardContent } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Loader2, Search, Ticket, Phone, User } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { 
+  Loader2, Search, Ticket, Phone, User, 
+  CheckCircle, XCircle, Eye, MapPin, Clock,
+  Camera, AlertCircle, RefreshCcw
+} from 'lucide-react';
 import { formatDateTime, getStatusColor } from '../../lib/utils';
 import { toast } from 'sonner';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState([]);
