@@ -113,15 +113,253 @@ export default function CouponsPage() {
     <Layout>
       <div className="space-y-6" data-testid="coupons-page">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
-            Coupons
-          </h1>
-          <p className="text-zinc-500 mt-1">
-            View and manage all issued coupons
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
+              Coupons
+            </h1>
+            <p className="text-zinc-500 mt-1">
+              {isCRE ? 'View and verify coupons' : 'View and manage all issued coupons'}
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => { setLoading(true); fetchCoupons(); }}>
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
 
+        {/* CRE Tabs View */}
+        {isCRE ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="pending" className="relative">
+                Pending Verification
+                {pendingCoupons.length > 0 && (
+                  <Badge className="ml-2 bg-red-500 text-white">{pendingCoupons.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="all">All Coupons</TabsTrigger>
+            </TabsList>
+
+            {/* Pending Coupons Tab */}
+            <TabsContent value="pending" className="mt-6">
+              {loading ? (
+                <Card>
+                  <CardContent className="flex items-center justify-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  </CardContent>
+                </Card>
+              ) : pendingCoupons.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center h-64 text-center">
+                    <CheckCircle className="h-12 w-12 text-green-300 mb-4" />
+                    <p className="text-zinc-500">No pending coupons</p>
+                    <p className="text-sm text-zinc-400">All coupons have been verified</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {pendingCoupons.map((coupon) => (
+                    <Card key={coupon.id} className="border-yellow-200 bg-yellow-50/50" data-testid={`pending-coupon-${coupon.id}`}>
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row gap-6">
+                          {/* Photo Preview */}
+                          {coupon.photo_url && (
+                            <div className="w-full md:w-48 h-36 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0">
+                              <img 
+                                src={`${BACKEND_URL}${coupon.photo_url}`} 
+                                alt="Coupon photo"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Coupon Details */}
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <code className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded font-mono text-lg">
+                                {coupon.code}
+                              </code>
+                              <Badge className={getStatusColor(coupon.status)}>
+                                {coupon.status}
+                              </Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-zinc-400" />
+                                <span className="font-medium">{coupon.customer_name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-zinc-400" />
+                                <span>{coupon.customer_phone}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-zinc-400" />
+                                <span className="text-sm text-zinc-600">{formatDateTime(coupon.issued_at)}</span>
+                              </div>
+                              {coupon.latitude && coupon.longitude && (
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4 text-zinc-400" />
+                                  <span className="text-sm text-zinc-600">
+                                    {coupon.latitude.toFixed(4)}, {coupon.longitude.toFixed(4)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* OCR Confidence */}
+                            {coupon.ocr_confidence !== undefined && (
+                              <div className="flex items-center gap-2">
+                                <Camera className="h-4 w-4 text-zinc-400" />
+                                <span className="text-sm">
+                                  OCR Confidence: 
+                                  <span className={`ml-1 font-medium ${
+                                    coupon.ocr_confidence >= 0.8 ? 'text-green-600' : 
+                                    coupon.ocr_confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600'
+                                  }`}>
+                                    {(coupon.ocr_confidence * 100).toFixed(0)}%
+                                  </span>
+                                </span>
+                                {coupon.ocr_confidence < 0.7 && (
+                                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex flex-col gap-2 md:w-40">
+                            <Button 
+                              onClick={() => openVerifyDialog(coupon)}
+                              className="bg-green-600 hover:bg-green-700"
+                              data-testid={`verify-btn-${coupon.id}`}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Review
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* All Coupons Tab */}
+            <TabsContent value="all" className="mt-6">
+              {renderAllCouponsView()}
+            </TabsContent>
+          </Tabs>
+        ) : (
+          renderAllCouponsView()
+        )}
+
+        {/* Verify Dialog */}
+        <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="font-['Barlow_Condensed'] text-2xl">
+                Verify Coupon - {selectedCoupon?.code}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {selectedCoupon && (
+              <div className="space-y-6">
+                {/* Photo */}
+                {selectedCoupon.photo_url && (
+                  <div className="w-full h-64 bg-zinc-100 rounded-lg overflow-hidden">
+                    <img 
+                      src={`${BACKEND_URL}${selectedCoupon.photo_url}`} 
+                      alt="Coupon photo"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
+                
+                {/* Editable Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Customer Name</label>
+                    <Input
+                      value={correctedName}
+                      onChange={(e) => setCorrectedName(e.target.value)}
+                      placeholder="Enter customer name"
+                      data-testid="verify-name-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Mobile Number</label>
+                    <Input
+                      value={correctedMobile}
+                      onChange={(e) => setCorrectedMobile(e.target.value)}
+                      placeholder="Enter mobile number"
+                      data-testid="verify-mobile-input"
+                    />
+                  </div>
+                </div>
+                
+                {/* Location Info */}
+                {selectedCoupon.latitude && selectedCoupon.longitude && (
+                  <div className="p-3 bg-zinc-50 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-zinc-400" />
+                      <span>Location: {selectedCoupon.latitude.toFixed(6)}, {selectedCoupon.longitude.toFixed(6)}</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Notes */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Verification Notes (Optional)</label>
+                  <Textarea
+                    value={verificationNotes}
+                    onChange={(e) => setVerificationNotes(e.target.value)}
+                    placeholder="Add any notes about this verification..."
+                    rows={3}
+                    data-testid="verify-notes-input"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setVerifyDialogOpen(false)}
+                disabled={processing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleVerify(false)}
+                disabled={processing}
+                data-testid="reject-coupon-btn"
+              >
+                {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                Reject
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => handleVerify(true)}
+                disabled={processing}
+                data-testid="approve-coupon-btn"
+              >
+                {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                Approve & Activate
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </Layout>
+  );
+
+  function renderAllCouponsView() {
+    return (
+      <>
         {/* Filters */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="relative flex-1 max-w-md">
@@ -140,7 +378,9 @@ export default function CouponsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="ISSUED">Issued</SelectItem>
+              <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="VERIFIED">Verified</SelectItem>
               <SelectItem value="REDEEMED">Redeemed</SelectItem>
               <SelectItem value="UTILIZED">Utilized</SelectItem>
               <SelectItem value="EXPIRED">Expired</SelectItem>
@@ -171,7 +411,7 @@ export default function CouponsPage() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Issued At</TableHead>
-                    <TableHead>Redeemed At</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -191,7 +431,7 @@ export default function CouponsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-zinc-600">
                           <Phone className="h-4 w-4" />
-                          {coupon.customer_phone}
+                          {coupon.customer_phone || coupon.mobile_last4 || '-'}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -202,8 +442,17 @@ export default function CouponsPage() {
                       <TableCell className="text-zinc-600">
                         {formatDateTime(coupon.issued_at)}
                       </TableCell>
-                      <TableCell className="text-zinc-600">
-                        {coupon.redeemed_at ? formatDateTime(coupon.redeemed_at) : '-'}
+                      <TableCell>
+                        {coupon.status === 'PENDING' && isCRE && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openVerifyDialog(coupon)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -212,7 +461,7 @@ export default function CouponsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </Layout>
-  );
+      </>
+    );
+  }
 }
