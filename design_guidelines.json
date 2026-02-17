@@ -1,0 +1,191 @@
+{
+  "identity": {
+    "name": "FieldFlow Pro",
+    "archetype": "The Performance Pro",
+    "description": "A high-performance, offline-first field service management platform designed for speed, clarity, and reliability in outdoor environments.",
+    "emotional_tone": "Precision, Athleticism, Trust, Efficiency"
+  },
+  "typography": {
+    "primary_font": "Inter",
+    "secondary_font": "Barlow Condensed",
+    "mono_font": "JetBrains Mono",
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+      "h2": "text-3xl md:text-4xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold tracking-tight",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm font-medium text-muted-foreground",
+      "tiny": "text-xs font-bold uppercase tracking-wider"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');"
+    ]
+  },
+  "colors": {
+    "theme": "light",
+    "palette": {
+      "primary": {
+        "DEFAULT": "#0A0A0A",
+        "foreground": "#FFFFFF"
+      },
+      "secondary": {
+        "DEFAULT": "#F4F4F5",
+        "foreground": "#18181B"
+      },
+      "accent": {
+        "DEFAULT": "#007AFF",
+        "foreground": "#FFFFFF",
+        "hover": "#0062C4"
+      },
+      "destructive": {
+        "DEFAULT": "#FF3B30",
+        "foreground": "#FFFFFF"
+      },
+      "success": {
+        "DEFAULT": "#22C55E",
+        "foreground": "#FFFFFF"
+      },
+      "warning": {
+        "DEFAULT": "#F59E0B",
+        "foreground": "#FFFFFF"
+      },
+      "background": "#FFFFFF",
+      "foreground": "#09090B",
+      "muted": {
+        "DEFAULT": "#F4F4F5",
+        "foreground": "#71717A"
+      },
+      "border": "#E4E4E7",
+      "input": "#E4E4E7",
+      "ring": "#0A0A0A"
+    },
+    "gradients": {
+      "subtle": "bg-gradient-to-b from-white to-zinc-50",
+      "active": "bg-gradient-to-r from-blue-600 to-blue-500"
+    }
+  },
+  "layout": {
+    "spacing": {
+      "container_padding": "p-4 md:p-8 lg:p-12",
+      "section_gap": "gap-8 md:gap-12",
+      "component_gap": "gap-4"
+    },
+    "grid_systems": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "form": "grid grid-cols-1 md:grid-cols-2 gap-6",
+      "card_list": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+    },
+    "border_radius": {
+      "default": "rounded-lg",
+      "card": "rounded-xl",
+      "button": "rounded-md",
+      "input": "rounded-md"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 rounded-md font-medium transition-all active:scale-95",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 h-11 px-8 rounded-md font-medium transition-all active:scale-95",
+      "outline": "border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-8 rounded-md font-medium transition-all active:scale-95",
+      "ghost": "hover:bg-accent hover:text-accent-foreground h-11 px-4 rounded-md font-medium transition-all"
+    },
+    "cards": {
+      "default": "bg-card text-card-foreground rounded-xl border shadow-sm hover:shadow-md transition-shadow duration-200",
+      "interactive": "bg-card text-card-foreground rounded-xl border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+    },
+    "inputs": {
+      "default": "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    },
+    "status_badges": {
+      "success": "inline-flex items-center rounded-full border border-transparent bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+      "warning": "inline-flex items-center rounded-full border border-transparent bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+      "error": "inline-flex items-center rounded-full border border-transparent bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+      "neutral": "inline-flex items-center rounded-full border border-transparent bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
+      "medium": "shadow-[0_4px_16px_rgba(0,0,0,0.08)]",
+      "hard": "shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+    },
+    "glassmorphism": {
+      "default": "bg-white/80 backdrop-blur-md border border-white/20 shadow-sm"
+    },
+    "animations": {
+      "hover_lift": "transition-transform duration-200 hover:-translate-y-1",
+      "fade_in": "animate-in fade-in duration-500",
+      "slide_up": "animate-in slide-in-from-bottom-4 duration-500"
+    }
+  },
+  "images": {
+    "login_hero": {
+      "url": "https://images.unsplash.com/photo-1648747640271-e0270e2dac1c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxmaWVsZCUyMHNlcnZpY2UlMjB0ZWNobmljaWFuJTIwdGFibGV0fGVufDB8fHx8MTc3MTMwMjg1NXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Field technician using tablet",
+      "category": "hero"
+    },
+    "worker_action": {
+      "url": "https://images.unsplash.com/photo-1611954267906-3d7840acfab1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwyfHxmaWVsZCUyMHNlcnZpY2UlMjB0ZWNobmljaWFuJTIwdGFibGV0fGVufDB8fHx8MTc3MTMwMjg1NXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Worker scanning or using phone",
+      "category": "action"
+    },
+    "equipment_check": {
+      "url": "https://images.unsplash.com/photo-1687885436060-1984683b1c05?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwzfHxmaWVsZCUyMHNlcnZpY2UlMjB0ZWNobmljaWFuJTIwdGFibGV0fGVufDB8fHx8MTc3MTMwMjg1NXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Equipment inspection",
+      "category": "context"
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "stroke-width-2",
+    "size": {
+      "small": "h-4 w-4",
+      "medium": "h-5 w-5",
+      "large": "h-6 w-6",
+      "xl": "h-8 w-8"
+    }
+  },
+  "accessibility": {
+    "contrast_check": "Ensure all text has at least 4.5:1 contrast ratio against background.",
+    "focus_states": "Visible focus rings on all interactive elements (ring-2 ring-offset-2).",
+    "aria_labels": "Required for all icon-only buttons.",
+    "touch_targets": "Minimum 44x44px for all touch targets on mobile."
+  },
+  "pwa_specifics": {
+    "offline_indicator": "Must show a clear banner or icon when the user is offline.",
+    "install_prompt": "Custom install prompt design to encourage 'Add to Home Screen'.",
+    "touch_feedback": "Immediate visual feedback on touch (active states)."
+  },
+  "instructions_to_main_agent": [
+    "Use 'Barlow Condensed' for all headings (h1-h3) to give a strong, industrial feel.",
+    "Use 'Inter' for all body text for maximum legibility.",
+    "Implement the 'Performance Pro' color palette: High contrast Black/White with Electric Blue accents.",
+    "For the Worker App: Prioritize large touch targets and clear status indicators. Use the 'worker_action' image for the login screen.",
+    "For the Admin Dashboard: Use a high-density grid layout. Use 'lucide-react' icons for all navigation items.",
+    "Ensure all forms use 'react-hook-form' with 'zod' validation (standard in Shadcn).",
+    "Use 'sonner' for all toast notifications.",
+    "Implement a 'NetworkStatus' component that listens to 'navigator.onLine' and shows a warning when offline.",
+    "Map integration: Use a placeholder component with a 'Map' icon if actual map integration is complex, but style it as a premium feature.",
+    "Do not use gradients for backgrounds; stick to solid colors or subtle patterns for a professional look."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: `transition: all`. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add `.App { text-align: center; }` in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use `sonner` for toasts. Sonner component are located in `/app/src/components/ui/sonner.tsx`"
+  ]
+}
