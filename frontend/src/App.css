@@ -1,34 +1,250 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* FieldFlow Pro - Custom Styles */
+
+/* Sidebar styles */
+.sidebar {
+    @apply fixed left-0 top-0 h-full w-64 bg-white border-r border-zinc-200 z-40;
+    transition: transform 0.3s ease;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
+.sidebar-collapsed {
+    transform: translateX(-100%);
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        @apply w-full max-w-xs;
     }
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Main content area */
+.main-content {
+    @apply min-h-screen bg-zinc-50;
+    transition: margin-left 0.3s ease;
 }
 
-.App-link {
-    color: #61dafb;
+.main-content-expanded {
+    @apply ml-0 md:ml-64;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Card hover effects */
+.card-interactive {
+    @apply bg-white rounded-xl border border-zinc-200 shadow-sm;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-interactive:hover {
+    @apply shadow-md;
+    transform: translateY(-2px);
+}
+
+/* Status indicator dot */
+.status-dot {
+    @apply w-2 h-2 rounded-full;
+}
+
+.status-dot-active {
+    @apply bg-green-500;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.status-dot-idle {
+    @apply bg-yellow-500;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.status-dot-offline {
+    @apply bg-zinc-400;
+}
+
+/* Stats card gradient accents */
+.stats-card {
+    @apply relative overflow-hidden;
+}
+
+.stats-card::before {
+    content: '';
+    @apply absolute top-0 left-0 w-1 h-full;
+}
+
+.stats-card-primary::before {
+    @apply bg-blue-500;
+}
+
+.stats-card-success::before {
+    @apply bg-green-500;
+}
+
+.stats-card-warning::before {
+    @apply bg-yellow-500;
+}
+
+.stats-card-danger::before {
+    @apply bg-red-500;
+}
+
+/* Button active state */
+.btn-active-scale {
+    transition: transform 0.1s ease;
+}
+
+.btn-active-scale:active {
+    transform: scale(0.97);
+}
+
+/* Form input focus */
+.input-focus-ring {
+    @apply focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none;
+}
+
+/* Navigation link active state */
+.nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-600 font-medium;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover {
+    @apply bg-zinc-100 text-zinc-900;
+}
+
+.nav-link-active {
+    @apply bg-blue-50 text-blue-600;
+}
+
+/* Mobile bottom navigation */
+.bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-200 z-40;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav-item {
+    @apply flex flex-col items-center justify-center py-2 px-4 text-zinc-500;
+    transition: color 0.2s ease;
+}
+
+.bottom-nav-item-active {
+    @apply text-blue-600;
+}
+
+/* Map marker */
+.map-marker {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Loading skeleton pulse */
+.skeleton-pulse {
+    @apply bg-zinc-200 rounded;
+    animation: skeleton-loading 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Coupon card styling */
+.coupon-card {
+    @apply relative bg-white rounded-xl border-2 border-dashed border-zinc-200 overflow-hidden;
+}
+
+.coupon-card::before,
+.coupon-card::after {
+    content: '';
+    @apply absolute w-6 h-6 bg-zinc-50 rounded-full;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.coupon-card::before {
+    left: -12px;
+}
+
+.coupon-card::after {
+    right: -12px;
+}
+
+/* Table row hover */
+.table-row-hover {
+    transition: background-color 0.15s ease;
+}
+
+.table-row-hover:hover {
+    @apply bg-zinc-50;
+}
+
+/* Badge variants */
+.badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+}
+
+/* GPS accuracy indicator */
+.gps-accuracy {
+    @apply flex items-center gap-1 text-xs;
+}
+
+.gps-accuracy-high {
+    @apply text-green-600;
+}
+
+.gps-accuracy-medium {
+    @apply text-yellow-600;
+}
+
+.gps-accuracy-low {
+    @apply text-red-600;
+}
+
+/* Floating action button */
+.fab {
+    @apply fixed right-4 bottom-20 md:bottom-8 w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab:hover {
+    @apply shadow-xl;
+    transform: scale(1.05);
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+/* Punch button */
+.punch-button {
+    @apply w-32 h-32 rounded-full flex flex-col items-center justify-center text-white font-bold;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.punch-button-in {
+    @apply bg-green-500;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+}
+
+.punch-button-out {
+    @apply bg-red-500;
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+}
+
+.punch-button:active {
+    transform: scale(0.95);
+}
+
+/* Empty state */
+.empty-state {
+    @apply flex flex-col items-center justify-center py-16 text-center;
+}
+
+.empty-state-icon {
+    @apply w-16 h-16 text-zinc-300 mb-4;
+}
+
+/* Page header */
+.page-header {
+    @apply sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-zinc-200;
+}
+
+/* Responsive container */
+.container-fluid {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
