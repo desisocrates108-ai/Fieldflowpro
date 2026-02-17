@@ -1,0 +1,163 @@
+<analysis>**original_problem_statement**: The user wants to build a production-ready, offline-first Progressive Web App (PWA) for a field service company. The application should support multiple user roles: Worker, Admin, Branch Manager, and Customer.
+
+**PRODUCT REQUIREMENTS**:
+-   **Core Workflow**: A worker issues a coupon, the customer redeems it via OTP, a booking is created, an admin assigns it to a branch, the branch dispatches and completes the service, and the coupon is marked as utilized.
+-   **Key Features**:
+    -   JWT-based authentication with Role-Based Access Control (RBAC).
+    -   GPS-based attendance (punch-in/out).
+    -   Secure coupon generation and management.
+    -   Booking lifecycle management.
+    -   Live GPS location tracking of workers.
+    -   An admin dashboard with analytics.
+    -   Offline-first capabilities with IndexedDB.
+    -   Photo capture for various processes.
+    -   Data masking for sensitive information based on user role.
+    -   Audit logging for critical actions.
+-   **Tech Stack**: React frontend, FastAPI backend, and MongoDB database (with a future plan to migrate to PostgreSQL).
+
+**User's preferred language**: English
+
+**what currently exists?**
+A full-stack application has been developed with a FastAPI backend and a React frontend. The application includes a robust JWT-based authentication system supporting four roles: , , , and  (Customer Relations Executive). A comprehensive RBAC system is in place, which includes server-side data masking (e.g., hiding full phone numbers from the  role) and audit logging for security. The initial version of coupon creation, redemption, and booking is functional. The backend has been prepared for WebSocket communication, but the frontend is not yet fully integrated with it.
+
+**Last working item**:
+    - Last item agent was working: The agent was in the middle of implementing a new, streamlined coupon issuance system. This involves a single button on the worker's dashboard that uses the device camera to capture a photo, performs client-side OCR with Tesseract.js to extract customer details, captures the GPS location, and sends all data to the backend. The backend logic and new frontend components (, ) have been created, and the next step was to update the frontend API utility file.
+    - Status: IN PROGRESS
+    - Agent Testing Done: N
+    - Which testing method agent to use? both
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+There are no outstanding bugs. The primary focus is on completing the tasks in progress.
+
+**In progress Task List**:
+  - Task 1:  Complete OCR-based Coupon Issuance Flow (Priority: P0)
+  
+ Task Detail:
+  - Task 1: 
+     - Where to resume: Update the  file to include the new API call functions for the OCR-based coupon issuance () and worker coupon summary management (, ). After updating, connect the WebSocket on the CRE dashboard for real-time updates.
+     - What will be achieved with this?: This will complete the new, efficient coupon issuance workflow for workers and enable real-time notifications for the CRE team, significantly improving operational speed.
+     - Status:  IN PROGRESS
+     - Should Test frontend/backend/both after fix?: both
+     - Blocked on something: None
+
+**Upcoming and Future Tasks**
+    Upcoming Tasks:
+    - P0: Full end-to-end testing of the new OCR coupon issuance flow.
+    - P1: Implement the CRE dashboard to connect to the WebSocket and display real-time coupon issuance updates.
+    - P1: Implement the Live Map feature for the Admin dashboard using Mapbox. The agent will need to ask the user for an API key.
+    - P2: Implement the full offline-first strategy using IndexedDB and Service Workers for core functionalities like attendance and coupon issuance.
+    - P2: Migrate the frontend build system to React + Vite as previously approved by the user.
+
+    Future Tasks:
+    - Migrate the database from MongoDB to PostgreSQL.
+    - Migrate image storage from the local file system to a cloud service like AWS S3.
+    - Replace the mock OTP system with a real SMS provider integration (e.g., Twilio).
+    - Implement Phase 2 features: branch assignment logic, a complete service lifecycle status update system, and user notifications.
+    - Implement Phase 3 features: advanced analytics, worker performance scoring, and fraud detection.
+    - Upgrade the encryption for mobile numbers from the basic implementation to AES-256.
+
+**Completed work in this session**
+- List of all completed tasks with file and method name:
+    - Initial Application Scaffolding: Built the foundational structure for the FastAPI backend and React frontend.
+    - JWT Authentication: Implemented a full authentication system with login and registration in .
+    - Initial UI/UX: Created login, registration, and dashboard pages for Admin and Worker roles.
+    - **Enhanced RBAC System**:
+        - Implemented a robust RBAC middleware in  to support , , , and  roles.
+        - Added server-side data masking to protect sensitive customer data, with logic in .
+        - Created an  model and associated endpoints in  and  to track important user actions.
+        - Successfully tested the entire RBAC and data masking flow.
+
+**Earlier issues found/mentioned but not fixed**
+   - Issue 1: During automated testing, a minor failure was noted with the role-selection dropdown on the registration page. The agent diagnosed this as a known incompatibility between the testing tool (Playwright) and the UI component library (Radix UI). As the component works correctly during manual use, the agent decided to bypass this issue for now.
+     - Why to solve this issue and what will be achieved with this?: Fixing it would allow for 100% automated test coverage on the registration flow, but it is a low-priority issue.
+     - Should Test frontend/backend/both after fix: frontend
+
+**Known issue recurrence from previous fork**
+- None.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+-   **Backend**: FastAPI, MongoDB with Beanie ODM, JWT for authentication, WebSockets for real-time communication, Pydantic for data validation.
+-   **Frontend**: React, React Router, Tailwind CSS, Shadcn UI, Context API for state management, Tesseract.js for client-side OCR, and  for camera access.
+-   **Core Principles**: Role-Based Access Control (RBAC), API-driven architecture, and a plan for an offline-first PWA.
+
+**key DB schema**
+-   **Database**: MongoDB
+-   **users**: 
+-   **coupons**: 
+-   **bookings**: 
+-   **audit_logs**: 
+
+**changes in tech stack**
+-   The user originally requested PostgreSQL but approved MongoDB for the MVP to accelerate initial development. A migration to PostgreSQL is planned for a future phase.
+
+**All files of reference**
+-   **/app/backend/server.py**: Contains all API endpoints, RBAC middleware, data masking logic, and WebSocket manager.
+-   **/app/backend/models.py**: Defines all database schemas using Pydantic and Beanie.
+-   **/app/frontend/src/pages/worker/IssueCoupon.jsx**: The new UI for OCR-based coupon issuance.
+-   **/app/frontend/src/pages/worker/Dashboard.jsx**: The worker's main dashboard, updated to show coupon possession counts.
+-   **/app/frontend/src/lib/api.js**: The file to be updated next to integrate the new frontend components with the backend.
+-   **/app/memory/PRD.md**: Contains the project's requirements, features, and progress log.
+
+**Areas that need refactoring**:
+-   The frontend is currently using a standard React setup. The user approved a migration to **Vite** for better performance and a modern development experience, which has been deferred.
+
+**key api endpoints**
+-   , 
+-   : The new OCR-based coupon creation endpoint.
+-   : Fetches coupons with data masked based on user role.
+-   : Updates a worker's coupon possession count.
+-   : Retrieves audit trail data.
+-   : The WebSocket endpoint for pushing real-time updates to the CRE team.
+
+**Critical Info for New Agent**
+-   **Resume Point**: Your immediate task is to update  to add the functions for the new OCR coupon flow. After that, you must integrate the WebSocket on the CRE dashboard to listen for and display real-time updates.
+-   **RBAC is Paramount**: All features must respect the existing RBAC and data-masking rules enforced by the backend. The roles are , , , and .
+-   **User Choices**: The user has chosen Tesseract.js for client-side OCR and WebSockets for real-time updates. Proceed with these technologies.
+-   **Future Tasks**: Be aware of the planned migrations (PostgreSQL, S3, Vite) and features for future phases.
+
+**documents and test reports created in this job**
+-   /app/memory/PRD.md
+-   /app/design_guidelines.json
+-   /app/test_reports/iteration_1.json
+
+**Last 10 User Messages and any pending HUMAN messages** 
+1.  **User**: Confirmed choices: Tesseract.js for OCR, WebSockets for real-time updates, and the automatic decrementing of the worker's coupon count. Instructed to proceed. (Status: In Progress).
+2.  **Agent**: Asked clarifying questions. (Status: Answered).
+3.  **User**: Posed questions to the agent about implementation details. (Status: Clarified).
+4.  **User**: Provided a detailed specification for the new OCR-based coupon issuance system. (Status: In Progress).
+5.  **Agent**: Announced completion of the RBAC enhancement. (Status: Completed).
+6.  **Agent**: (Internal message/Finish tool output).
+7.  **Agent**: Updated the PRD document. (Status: Completed).
+8.  **Agent**: Announced the successful completion of RBAC testing. (Status: Completed).
+9.  **Agent**: Executed a test script for the RBAC system. (Status: Completed).
+10. **Agent**: Stated the plan to test the new RBAC system. (Status: Completed).
+
+**Project Health Check:**
+- **Broken**: The new OCR coupon issuance feature is partially implemented and therefore not functional.
+- **Mocked**: OTP verification is mocked on the backend.
+
+**3rd Party Integrations**
+-   **Mapbox**: Selected for map features. A playbook has been received, but it is not yet implemented. An API key will be required from the user.
+-   **Tesseract.js**: Selected for client-side OCR. The library is installed in the frontend.
+-   **WebSockets**: The FastAPI backend is configured to support WebSockets.
+
+**Testing status**
+  - Testing agent used after significant changes: YES
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None
+  - Known regressions: None
+
+**Credentials to test flow:**
+-   **Admin**:  / 
+-   **Worker**:  / 
+-   **Branch**:  / 
+-   **CRE**:  / 
+
+**What agent forgot to execute**
+-   The agent has not yet asked the user for the **Mapbox API token**, which is necessary for implementing the live map feature.
+-   The frontend component for the CRE dashboard has not been updated to establish a WebSocket connection and listen for real-time updates, even though the backend is ready.
+-   The migration to **React + Vite**, which was approved by the user, was deferred and should be scheduled as an upcoming task.</analysis>

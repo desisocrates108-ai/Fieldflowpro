@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 class FieldFlowAPITester:
-    def __init__(self, base_url="https://tasktracker-586.preview.emergentagent.com"):
+    def __init__(self, base_url="https://couponsys.preview.emergentagent.com"):
         self.base_url = base_url
         self.admin_token = None
         self.worker_token = None
