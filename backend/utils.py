@@ -16,7 +16,12 @@ def generate_coupon_code(area_id: str, worker_id: str) -> str:
     Example: SVL-VAL-102-A7K9D2
     """
     # Clean and format area_id (take first 3 chars, uppercase)
-    area_part = re.sub(r'[^A-Za-z0-9]', '', area_id)[:3].upper() or "DEF"
+    # Handle None or empty area_id
+    area_part = "DEF"
+    if area_id:
+        cleaned = re.sub(r'[^A-Za-z0-9]', '', area_id)[:3].upper()
+        if cleaned:
+            area_part = cleaned
     
     # Take last 3 chars of worker_id for uniqueness
     worker_part = worker_id[-3:].upper()
