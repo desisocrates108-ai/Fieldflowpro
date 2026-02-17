@@ -22,15 +22,30 @@ import { toast } from 'sonner';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function CouponsPage() {
+  const { user } = useAuth();
   const [coupons, setCoupons] = useState([]);
+  const [pendingCoupons, setPendingCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [verificationNotes, setVerificationNotes] = useState('');
+  const [correctedName, setCorrectedName] = useState('');
+  const [correctedMobile, setCorrectedMobile] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState('pending');
+
+  const isCRE = user?.role === 'cre' || user?.role === 'admin';
 
   const fetchCoupons = async () => {
     try {
-      const response = await couponAPI.getAll(statusFilter === 'all' ? null : statusFilter);
-      setCoupons(response.data);
+      const [allRes, pendingRes] = await Promise.all([
+        couponAPI.getAll(statusFilter === 'all' ? null : statusFilter),
+        isCRE ? couponAPI.getAll(null, true) : Promise.resolve({ data: [] })
+      ]);
+      setCoupons(allRes.data);
+      setPendingCoupons(pendingRes.data || []);
     } catch (error) {
       console.error('Failed to fetch coupons:', error);
       toast.error('Failed to load coupons');
@@ -43,10 +58,55 @@ export default function CouponsPage() {
     fetchCoupons();
   }, [statusFilter]);
 
+  const handleVerify = async (verified) => {
+    if (!selectedCoupon) return;
+    
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BACKEND_URL}/api/coupons/${selectedCoupon.id}/verify`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          verified,
+          notes: verificationNotes,
+          corrected_name: correctedName || null,
+          corrected_mobile: correctedMobile || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Verification failed');
+      }
+
+      toast.success(verified ? 'Coupon verified successfully!' : 'Coupon cancelled');
+      setVerifyDialogOpen(false);
+      setSelectedCoupon(null);
+      setVerificationNotes('');
+      setCorrectedName('');
+      setCorrectedMobile('');
+      fetchCoupons();
+    } catch (error) {
+      toast.error('Failed to verify coupon');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openVerifyDialog = (coupon) => {
+    setSelectedCoupon(coupon);
+    setCorrectedName(coupon.customer_name);
+    setCorrectedMobile(coupon.customer_phone);
+    setVerifyDialogOpen(true);
+  };
+
   const filteredCoupons = coupons.filter(coupon => 
-    coupon.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    coupon.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    coupon.customer_phone.includes(searchQuery)
+    coupon.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    coupon.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (coupon.customer_phone || coupon.mobile_last4 || '').includes(searchQuery)
   );
 
   return (
