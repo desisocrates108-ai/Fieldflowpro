@@ -4,17 +4,18 @@ from datetime import datetime, timezone
 import uuid
 
 # ========== Enums as Literals ==========
-UserRole = Literal["admin", "worker", "branch", "cre"]  # Added CRE role
-CouponStatus = Literal["DRAFT", "ACTIVE", "REDEEMED", "EXPIRED", "CANCELLED", "UTILIZED"]
+UserRole = Literal["admin", "worker", "branch", "cre"]
+CouponStatus = Literal["PENDING", "VERIFIED", "ACTIVE", "REDEEMED", "EXPIRED", "CANCELLED", "UTILIZED"]
 BookingStatus = Literal["PENDING", "ASSIGNED", "DISPATCHED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
 TaskStatus = Literal["PENDING", "IN_PROGRESS", "COMPLETED", "OVERDUE"]
 AttendanceType = Literal["PUNCH_IN", "PUNCH_OUT"]
 AuditAction = Literal[
     "LOGIN_SUCCESS", "LOGIN_FAILED", "LOGOUT",
-    "COUPON_CREATED", "COUPON_REDEEMED", "COUPON_CANCELLED",
+    "COUPON_CREATED", "COUPON_REDEEMED", "COUPON_CANCELLED", "COUPON_VERIFIED",
     "PHOTO_UPLOADED", "BOOKING_CREATED", "BOOKING_UPDATED",
     "USER_CREATED", "USER_UPDATED", "SEARCH_QUERY",
-    "PUNCH_IN", "PUNCH_OUT", "DATA_EXPORT"
+    "PUNCH_IN", "PUNCH_OUT", "DATA_EXPORT",
+    "COUPON_ACCESSED", "POSSESSION_UPDATED"
 ]
 
 def generate_uuid():
@@ -51,8 +52,9 @@ class User(BaseModel):
     role: UserRole
     is_active: bool = True
     created_at: datetime = Field(default_factory=current_utc)
-    area_id: Optional[str] = None  # For workers
-    branch_id: Optional[str] = None  # For branch managers
+    area_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    coupon_possession_count: int = 0  # Number of physical coupons worker has
 
 class UserResponse(BaseModel):
     id: str
@@ -63,6 +65,7 @@ class UserResponse(BaseModel):
     is_active: bool
     area_id: Optional[str] = None
     branch_id: Optional[str] = None
+    coupon_possession_count: int = 0
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -99,6 +102,12 @@ class AttendanceResponse(BaseModel):
     is_valid: bool
     remarks: Optional[str] = None
 
+# ========== Photo Extraction Result ==========
+class PhotoExtractionResult(BaseModel):
+    name: Optional[str] = None
+    mobile: Optional[str] = None
+    confidence: float = 0.0
+
 # ========== Coupon Models ==========
 class CouponCreate(BaseModel):
     customer_name: str
@@ -108,49 +117,64 @@ class CouponCreate(BaseModel):
     photo_url: Optional[str] = None
     area_id: Optional[str] = None
 
+class CouponIssue(BaseModel):
+    """New coupon issuance from photo capture"""
+    image_base64: Optional[str] = None  # Base64 encoded image
+    extracted_name: str
+    extracted_mobile: str
+    location: dict  # {"lat": float, "lng": float}
+    ocr_confidence: float = 0.0
+    photo_url: Optional[str] = None  # URL if uploaded separately
+
 class Coupon(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=generate_uuid)
-    code: str  # SVL-AREAID-WORKERID-RANDOM6
+    code: str
     worker_id: str
     customer_name: str
     customer_phone: str  # Full phone (encrypted in DB)
-    customer_phone_last4: str  # Last 4 digits for branch view
-    status: CouponStatus = "ACTIVE"
+    customer_phone_last4: str
+    status: CouponStatus = "PENDING"  # Starts as PENDING, CRE verifies
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     photo_url: Optional[str] = None
     area_id: Optional[str] = None
     booking_id: Optional[str] = None
+    assigned_to_cre: Optional[str] = None  # CRE user ID
+    ocr_confidence: float = 0.0
     issued_at: datetime = Field(default_factory=current_utc)
+    verified_at: Optional[datetime] = None
     redeemed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 
 # Response models with role-based masking
 class CouponResponseFull(BaseModel):
-    """Full response for Admin/CRE - includes full mobile"""
+    """Full response for Admin/CRE - includes full mobile and location"""
     id: str
     code: str
     worker_id: str
     customer_name: str
-    customer_phone: str  # Full phone visible
+    customer_phone: str
     status: str
     latitude: Optional[float]
     longitude: Optional[float]
     photo_url: Optional[str]
     area_id: Optional[str]
     booking_id: Optional[str]
+    assigned_to_cre: Optional[str]
+    ocr_confidence: float
     issued_at: datetime
+    verified_at: Optional[datetime]
     redeemed_at: Optional[datetime]
     expires_at: Optional[datetime]
 
 class CouponResponseMasked(BaseModel):
-    """Masked response for Branch - only last 4 digits"""
+    """Masked response for Branch - only last 4 digits, no location"""
     id: str
     code: str
     customer_name: str
-    mobile_last4: str  # Only last 4 digits: XXXXXX6789
+    mobile_last4: str
     status: str
     issued_at: datetime
     redeemed_at: Optional[datetime]
@@ -166,12 +190,50 @@ class CouponResponseWorker(BaseModel):
     longitude: Optional[float]
     photo_url: Optional[str]
     area_id: Optional[str]
+    ocr_confidence: float
     issued_at: datetime
     redeemed_at: Optional[datetime]
 
 class CouponRedeem(BaseModel):
     coupon_code: str
     otp: str
+
+class CouponVerify(BaseModel):
+    """CRE verifies coupon data"""
+    verified: bool
+    corrected_name: Optional[str] = None
+    corrected_mobile: Optional[str] = None
+    notes: Optional[str] = None
+
+# ========== Coupon Summary (Worker Dashboard) ==========
+class CouponSummary(BaseModel):
+    worker_id: str
+    coupon_possession_count: int
+    coupons_issued: int
+    coupons_pending: int
+    coupons_verified: int
+
+class UpdatePossessionCount(BaseModel):
+    coupon_possession_count: int
+
+# ========== Issuance Log ==========
+class IssuanceLog(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=generate_uuid)
+    coupon_id: str
+    accessed_by: str  # User ID
+    role: str
+    fields_accessed: List[str]  # ["customerMobile", "location"]
+    timestamp: datetime = Field(default_factory=current_utc)
+
+class IssuanceLogResponse(BaseModel):
+    id: str
+    coupon_id: str
+    accessed_by: str
+    role: str
+    fields_accessed: List[str]
+    timestamp: datetime
 
 # ========== Booking Models ==========
 class BookingCreate(BaseModel):
@@ -221,7 +283,7 @@ class BookingResponse(BaseModel):
     created_at: datetime
 
 class BookingResponseMasked(BaseModel):
-    """Masked response for Branch - only last 4 digits of phone"""
+    """Masked response for Branch"""
     id: str
     coupon_id: str
     customer_name: str
@@ -336,7 +398,7 @@ class AuditLog(BaseModel):
     user_id: str
     user_role: str
     action: AuditAction
-    entity: str  # e.g., "coupon", "user", "booking"
+    entity: str
     entity_id: Optional[str] = None
     metadata: Optional[dict] = None
     ip_address: Optional[str] = None
@@ -358,6 +420,7 @@ class DashboardStats(BaseModel):
     total_workers: int
     active_workers: int
     total_coupons_today: int
+    coupons_pending_verification: int
     redemption_rate: float
     attendance_rate: float
     pending_bookings: int
@@ -374,12 +437,8 @@ class OTPVerify(BaseModel):
     phone: str
     otp: str
 
-# ========== Search Models ==========
-class CouponSearchQuery(BaseModel):
-    customer_name: Optional[str] = None
-    customer_phone: Optional[str] = None  # Full or last 4 digits
-    code: Optional[str] = None
-    status: Optional[str] = None
-    worker_id: Optional[str] = None
-    from_date: Optional[datetime] = None
-    to_date: Optional[datetime] = None
+# ========== WebSocket Message ==========
+class WSMessage(BaseModel):
+    type: str  # "new_coupon", "coupon_verified", etc.
+    data: dict
+    timestamp: datetime = Field(default_factory=current_utc)
