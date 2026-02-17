@@ -32,6 +32,13 @@ const getNavItems = (role) => {
       { path: '/admin/bookings', icon: ClipboardList, label: 'Bookings' },
       { path: '/admin/branches', icon: Building2, label: 'Branches' },
       { path: '/admin/map', icon: Map, label: 'Live Map' },
+      { path: '/admin/audit-logs', icon: FileText, label: 'Audit Logs' },
+    ],
+    cre: [
+      { path: '/cre', icon: LayoutDashboard, label: 'Dashboard' },
+      { path: '/cre/coupons', icon: Ticket, label: 'Coupons' },
+      { path: '/cre/bookings', icon: ClipboardList, label: 'Bookings' },
+      { path: '/cre/audit-logs', icon: FileText, label: 'Audit Logs' },
     ],
     worker: [
       { path: '/worker', icon: LayoutDashboard, label: 'Dashboard' },
@@ -40,7 +47,7 @@ const getNavItems = (role) => {
       { path: '/worker/my-coupons', icon: FileText, label: 'My Coupons' },
       { path: '/worker/tasks', icon: ClipboardList, label: 'Tasks' },
     ],
-    branch_manager: [
+    branch: [
       { path: '/branch', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/branch/bookings', icon: ClipboardList, label: 'Bookings' },
     ],
