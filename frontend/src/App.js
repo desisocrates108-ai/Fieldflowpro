@@ -48,9 +48,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     switch (user?.role) {
       case 'admin':
         return <Navigate to="/admin" replace />;
+      case 'cre':
+        return <Navigate to="/cre" replace />;
       case 'worker':
         return <Navigate to="/worker" replace />;
-      case 'branch_manager':
+      case 'branch':
         return <Navigate to="/branch" replace />;
       default:
         return <Navigate to="/login" replace />;
@@ -79,9 +81,11 @@ const RootRedirect = () => {
   switch (user?.role) {
     case 'admin':
       return <Navigate to="/admin" replace />;
+    case 'cre':
+      return <Navigate to="/cre" replace />;
     case 'worker':
       return <Navigate to="/worker" replace />;
-    case 'branch_manager':
+    case 'branch':
       return <Navigate to="/branch" replace />;
     default:
       return <Navigate to="/login" replace />;
