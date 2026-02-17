@@ -199,7 +199,7 @@ function AppRoutes() {
       <Route
         path="/branch"
         element={
-          <ProtectedRoute allowedRoles={['branch_manager']}>
+          <ProtectedRoute allowedRoles={['branch']}>
             <BranchBookings />
           </ProtectedRoute>
         }
@@ -207,8 +207,42 @@ function AppRoutes() {
       <Route
         path="/branch/bookings"
         element={
-          <ProtectedRoute allowedRoles={['branch_manager']}>
+          <ProtectedRoute allowedRoles={['branch']}>
             <BranchBookings />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* CRE Routes - Same dashboard as Admin but limited permissions */}
+      <Route
+        path="/cre"
+        element={
+          <ProtectedRoute allowedRoles={['cre']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cre/coupons"
+        element={
+          <ProtectedRoute allowedRoles={['cre']}>
+            <AdminCouponsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cre/bookings"
+        element={
+          <ProtectedRoute allowedRoles={['cre']}>
+            <AdminBookingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cre/audit-logs"
+        element={
+          <ProtectedRoute allowedRoles={['cre']}>
+            <AdminDashboard />
           </ProtectedRoute>
         }
       />
