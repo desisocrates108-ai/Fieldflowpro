@@ -1,26 +1,30 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Request, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import json
+import base64
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Union
+from typing import List, Optional, Set
 import shutil
 import uuid
+import asyncio
 
 from models import (
     UserCreate, UserLogin, User, UserResponse, TokenResponse,
     AttendanceCreate, Attendance, AttendanceResponse,
-    CouponCreate, Coupon, CouponResponseFull, CouponResponseMasked, CouponResponseWorker,
+    CouponCreate, CouponIssue, Coupon, CouponResponseFull, CouponResponseMasked, CouponResponseWorker,
+    CouponSummary, UpdatePossessionCount, CouponVerify,
     BookingCreate, Booking, BookingResponse, BookingResponseMasked, BookingStatusUpdate,
     BranchCreate, Branch, BranchResponse, BranchAssign,
     TaskCreate, Task, TaskResponse, TaskUpdate,
     LocationUpdate, LocationLog,
     DashboardStats, OTPRequest, OTPVerify,
-    AuditLog, AuditLogResponse, CouponSearchQuery
+    AuditLog, AuditLogResponse, IssuanceLog, IssuanceLogResponse
 )
 from auth import (
     get_password_hash, verify_password, create_access_token, 
@@ -46,7 +50,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app
-app = FastAPI(title="FieldFlow Pro API", version="2.0.0")
+app = FastAPI(title="FieldFlow Pro API", version="2.1.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -57,6 +61,56 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ========== WebSocket Connection Manager ==========
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: dict[str, Set[WebSocket]] = {
+            "admin": set(),
+            "cre": set(),
+            "branch": set(),
+            "worker": set()
+        }
+    
+    async def connect(self, websocket: WebSocket, role: str, user_id: str):
+        await websocket.accept()
+        if role not in self.active_connections:
+            self.active_connections[role] = set()
+        self.active_connections[role].add(websocket)
+        websocket.user_id = user_id
+        websocket.role = role
+        logger.info(f"WebSocket connected: {role}:{user_id}")
+    
+    def disconnect(self, websocket: WebSocket, role: str):
+        if role in self.active_connections:
+            self.active_connections[role].discard(websocket)
+        logger.info(f"WebSocket disconnected: {role}")
+    
+    async def broadcast_to_roles(self, roles: List[str], message: dict):
+        """Broadcast message to specific roles"""
+        for role in roles:
+            if role in self.active_connections:
+                disconnected = set()
+                for connection in self.active_connections[role]:
+                    try:
+                        await connection.send_json(message)
+                    except Exception as e:
+                        logger.error(f"WebSocket send error: {e}")
+                        disconnected.add(connection)
+                # Clean up disconnected
+                self.active_connections[role] -= disconnected
+    
+    async def send_to_user(self, user_id: str, message: dict):
+        """Send message to specific user"""
+        for role_connections in self.active_connections.values():
+            for connection in role_connections:
+                if hasattr(connection, 'user_id') and connection.user_id == user_id:
+                    try:
+                        await connection.send_json(message)
+                    except Exception:
+                        pass
+
+manager = ConnectionManager()
 
 # ========== Audit Logging Helper ==========
 async def create_audit_log(
@@ -86,20 +140,56 @@ async def create_audit_log(
     
     logger.info(f"AUDIT: {action} by {user_role}:{user_id} on {entity}:{entity_id}")
 
+# ========== Issuance Log Helper ==========
+async def create_issuance_log(coupon_id: str, accessed_by: str, role: str, fields_accessed: List[str]):
+    """Log when coupon data is accessed"""
+    log = IssuanceLog(
+        coupon_id=coupon_id,
+        accessed_by=accessed_by,
+        role=role,
+        fields_accessed=fields_accessed
+    )
+    doc = log.model_dump()
+    doc["timestamp"] = doc["timestamp"].isoformat()
+    await db.issuance_logs.insert_one(doc)
+
+# ========== WebSocket Endpoint ==========
+@app.websocket("/ws/{token}")
+async def websocket_endpoint(websocket: WebSocket, token: str):
+    try:
+        # Verify token
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+        role = payload.get("role")
+        
+        await manager.connect(websocket, role, user_id)
+        
+        try:
+            while True:
+                # Keep connection alive, handle incoming messages
+                data = await websocket.receive_text()
+                # Handle ping/pong for keepalive
+                if data == "ping":
+                    await websocket.send_text("pong")
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, role)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await websocket.close(code=1008)
+
 # ========== Auth Routes ==========
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate, request: Request):
-    # Check if email exists
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
     user = User(
         email=user_data.email,
         name=user_data.name,
         phone=user_data.phone,
-        role=user_data.role
+        role=user_data.role,
+        coupon_possession_count=0
     )
     user_dict = user.model_dump()
     user_dict["password_hash"] = get_password_hash(user_data.password)
@@ -107,7 +197,6 @@ async def register(user_data: UserCreate, request: Request):
     
     await db.users.insert_one(user_dict)
     
-    # Audit log
     await create_audit_log(
         user_id=user.id,
         user_role=user.role,
@@ -118,7 +207,6 @@ async def register(user_data: UserCreate, request: Request):
         request=request
     )
     
-    # Generate tokens
     token_data = {"sub": user.id, "email": user.email, "role": user.role, "name": user.name}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
@@ -134,7 +222,8 @@ async def register(user_data: UserCreate, request: Request):
             role=user.role,
             is_active=user.is_active,
             area_id=user.area_id,
-            branch_id=user.branch_id
+            branch_id=user.branch_id,
+            coupon_possession_count=user.coupon_possession_count
         )
     )
 
@@ -143,7 +232,6 @@ async def login(credentials: UserLogin, request: Request):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     
     if not user or not verify_password(credentials.password, user.get("password_hash", "")):
-        # Audit failed login
         await create_audit_log(
             user_id="unknown",
             user_role="unknown",
@@ -157,7 +245,6 @@ async def login(credentials: UserLogin, request: Request):
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account is disabled")
     
-    # Audit successful login
     await create_audit_log(
         user_id=user["id"],
         user_role=user["role"],
@@ -182,7 +269,8 @@ async def login(credentials: UserLogin, request: Request):
             role=user["role"],
             is_active=user.get("is_active", True),
             area_id=user.get("area_id"),
-            branch_id=user.get("branch_id")
+            branch_id=user.get("branch_id"),
+            coupon_possession_count=user.get("coupon_possession_count", 0)
         )
     )
 
@@ -211,7 +299,8 @@ async def refresh_token(refresh_token: str):
             role=user["role"],
             is_active=user.get("is_active", True),
             area_id=user.get("area_id"),
-            branch_id=user.get("branch_id")
+            branch_id=user.get("branch_id"),
+            coupon_possession_count=user.get("coupon_possession_count", 0)
         )
     )
 
@@ -228,7 +317,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         role=user["role"],
         is_active=user.get("is_active", True),
         area_id=user.get("area_id"),
-        branch_id=user.get("branch_id")
+        branch_id=user.get("branch_id"),
+        coupon_possession_count=user.get("coupon_possession_count", 0)
     )
 
 # ========== Attendance Routes ==========
@@ -236,7 +326,6 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def punch_in(data: AttendanceCreate, request: Request, current_user: dict = Depends(require_roles("worker", "admin"))):
     worker_id = current_user["sub"]
     
-    # Check if already punched in today
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     existing_punch = await db.attendance.find_one({
         "worker_id": worker_id,
@@ -259,7 +348,6 @@ async def punch_in(data: AttendanceCreate, request: Request, current_user: dict 
     doc["timestamp"] = doc["timestamp"].isoformat()
     await db.attendance.insert_one(doc)
     
-    # Audit log
     await create_audit_log(
         user_id=worker_id,
         user_role=current_user["role"],
@@ -285,7 +373,6 @@ async def punch_in(data: AttendanceCreate, request: Request, current_user: dict 
 async def punch_out(data: AttendanceCreate, request: Request, current_user: dict = Depends(require_roles("worker", "admin"))):
     worker_id = current_user["sub"]
     
-    # Check if punched in today
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     punch_in = await db.attendance.find_one({
         "worker_id": worker_id,
@@ -296,7 +383,6 @@ async def punch_out(data: AttendanceCreate, request: Request, current_user: dict
     if not punch_in:
         raise HTTPException(status_code=400, detail="Must punch in first")
     
-    # Check if already punched out
     punch_out_exists = await db.attendance.find_one({
         "worker_id": worker_id,
         "type": "PUNCH_OUT",
@@ -318,7 +404,6 @@ async def punch_out(data: AttendanceCreate, request: Request, current_user: dict
     doc["timestamp"] = doc["timestamp"].isoformat()
     await db.attendance.insert_one(doc)
     
-    # Audit log
     await create_audit_log(
         user_id=worker_id,
         user_role=current_user["role"],
@@ -352,30 +437,152 @@ async def get_today_attendance(current_user: dict = Depends(require_roles("worke
     
     return records
 
-# ========== Coupon Routes with RBAC ==========
+# ========== NEW: Coupon Issue Endpoint (Photo Capture) ==========
+@api_router.post("/coupons/issue")
+async def issue_coupon(data: CouponIssue, request: Request, current_user: dict = Depends(require_roles("worker", "admin"))):
+    """
+    New coupon issuance from photo capture with OCR.
+    Worker clicks photo → OCR extracts name/mobile → GPS captured → Coupon created
+    """
+    worker_id = current_user["sub"]
+    
+    # Get worker info
+    worker = await db.users.find_one({"id": worker_id}, {"_id": 0})
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    # Check possession count
+    possession_count = worker.get("coupon_possession_count", 0)
+    if possession_count <= 0:
+        raise HTTPException(status_code=400, detail="No coupons in possession. Please update your coupon count.")
+    
+    # Validate extracted data
+    if not data.extracted_name or len(data.extracted_name) < 2:
+        raise HTTPException(status_code=400, detail="Invalid or missing customer name")
+    
+    if not data.extracted_mobile or len(data.extracted_mobile) < 10:
+        raise HTTPException(status_code=400, detail="Invalid or missing mobile number")
+    
+    # Normalize and validate phone
+    normalized_phone = normalize_phone(data.extracted_mobile)
+    if not validate_phone(normalized_phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+    
+    last4 = get_last4_digits(normalized_phone)
+    encrypted_phone = encrypt_mobile(normalized_phone)
+    
+    # Save image if provided
+    photo_url = data.photo_url
+    if data.image_base64 and not photo_url:
+        try:
+            # Decode and save image
+            img_data = base64.b64decode(data.image_base64.split(',')[-1] if ',' in data.image_base64 else data.image_base64)
+            filename = f"{uuid.uuid4()}.jpg"
+            filepath = UPLOAD_DIR / filename
+            with open(filepath, 'wb') as f:
+                f.write(img_data)
+            photo_url = f"/uploads/{filename}"
+        except Exception as e:
+            logger.error(f"Image save error: {e}")
+    
+    # Generate unique coupon code
+    area_id = worker.get("area_id", "DEF")
+    code = generate_coupon_code(area_id, worker_id)
+    while await db.coupons.find_one({"code": code}):
+        code = generate_coupon_code(area_id, worker_id)
+    
+    # Get first available CRE for assignment
+    cre_user = await db.users.find_one({"role": "cre", "is_active": True}, {"_id": 0, "id": 1})
+    assigned_cre = cre_user["id"] if cre_user else None
+    
+    # Create coupon
+    coupon = Coupon(
+        code=code,
+        worker_id=worker_id,
+        customer_name=data.extracted_name.strip(),
+        customer_phone=encrypted_phone,
+        customer_phone_last4=last4,
+        status="PENDING",  # Needs CRE verification
+        latitude=data.location.get("lat"),
+        longitude=data.location.get("lng"),
+        photo_url=photo_url,
+        area_id=area_id,
+        assigned_to_cre=assigned_cre,
+        ocr_confidence=data.ocr_confidence,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30)
+    )
+    
+    doc = coupon.model_dump()
+    doc["issued_at"] = doc["issued_at"].isoformat()
+    doc["expires_at"] = doc["expires_at"].isoformat() if doc["expires_at"] else None
+    
+    await db.coupons.insert_one(doc)
+    
+    # Decrease worker's possession count
+    await db.users.update_one(
+        {"id": worker_id},
+        {"$inc": {"coupon_possession_count": -1}}
+    )
+    
+    # Audit log
+    await create_audit_log(
+        user_id=worker_id,
+        user_role=current_user["role"],
+        action="COUPON_CREATED",
+        entity="coupon",
+        entity_id=coupon.id,
+        metadata={
+            "code": code,
+            "customer_name": data.extracted_name,
+            "ocr_confidence": data.ocr_confidence,
+            "assigned_cre": assigned_cre
+        },
+        request=request
+    )
+    
+    # Broadcast to CRE via WebSocket
+    ws_message = {
+        "type": "new_coupon",
+        "data": {
+            "coupon_id": coupon.id,
+            "code": coupon.code,
+            "customer_name": coupon.customer_name,
+            "customer_phone": normalized_phone,
+            "photo_url": photo_url,
+            "location": {"lat": coupon.latitude, "lng": coupon.longitude},
+            "ocr_confidence": coupon.ocr_confidence,
+            "worker_id": worker_id,
+            "issued_at": coupon.issued_at.isoformat()
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    await manager.broadcast_to_roles(["admin", "cre"], ws_message)
+    
+    return {
+        "coupon_id": coupon.id,
+        "code": coupon.code,
+        "customer_name": coupon.customer_name,
+        "status": coupon.status,
+        "message": "Coupon issued successfully. Pending CRE verification."
+    }
+
+# ========== Legacy Coupon Create (for backward compatibility) ==========
 @api_router.post("/coupons/create")
 async def create_coupon(data: CouponCreate, request: Request, current_user: dict = Depends(require_roles("worker", "admin"))):
     worker_id = current_user["sub"]
     area_id = data.area_id or "DEF"
     
-    # Validate customer name
     if not validate_customer_name(data.customer_name):
-        raise HTTPException(status_code=400, detail="Invalid customer name. Only letters, spaces, dots, and hyphens allowed.")
+        raise HTTPException(status_code=400, detail="Invalid customer name")
     
-    # Validate and normalize phone
     if not validate_phone(data.customer_phone):
         raise HTTPException(status_code=400, detail="Invalid phone number format")
     
     normalized_phone = normalize_phone(data.customer_phone)
     last4 = get_last4_digits(normalized_phone)
-    
-    # Encrypt phone for storage
     encrypted_phone = encrypt_mobile(normalized_phone)
     
-    # Generate unique coupon code
     code = generate_coupon_code(area_id, worker_id)
-    
-    # Ensure uniqueness
     while await db.coupons.find_one({"code": code}):
         code = generate_coupon_code(area_id, worker_id)
     
@@ -383,8 +590,9 @@ async def create_coupon(data: CouponCreate, request: Request, current_user: dict
         code=code,
         worker_id=worker_id,
         customer_name=data.customer_name,
-        customer_phone=encrypted_phone,  # Store encrypted
+        customer_phone=encrypted_phone,
         customer_phone_last4=last4,
+        status="ACTIVE",
         latitude=data.latitude,
         longitude=data.longitude,
         photo_url=data.photo_url,
@@ -398,7 +606,6 @@ async def create_coupon(data: CouponCreate, request: Request, current_user: dict
     
     await db.coupons.insert_one(doc)
     
-    # Audit log
     await create_audit_log(
         user_id=worker_id,
         user_role=current_user["role"],
@@ -409,56 +616,165 @@ async def create_coupon(data: CouponCreate, request: Request, current_user: dict
         request=request
     )
     
-    # Return response based on role (worker sees full phone for own coupons)
     return CouponResponseWorker(
         id=coupon.id,
         code=coupon.code,
         customer_name=coupon.customer_name,
-        customer_phone=normalized_phone,  # Return unencrypted for creator
+        customer_phone=normalized_phone,
         status=coupon.status,
         latitude=coupon.latitude,
         longitude=coupon.longitude,
         photo_url=coupon.photo_url,
         area_id=coupon.area_id,
+        ocr_confidence=coupon.ocr_confidence,
         issued_at=coupon.issued_at,
         redeemed_at=coupon.redeemed_at
     )
 
+# ========== Coupon Summary (Worker Dashboard) ==========
+@api_router.get("/coupons/summary", response_model=CouponSummary)
+async def get_coupon_summary(current_user: dict = Depends(require_roles("worker", "admin"))):
+    """Get worker's coupon summary for dashboard"""
+    worker_id = current_user["sub"]
+    
+    worker = await db.users.find_one({"id": worker_id}, {"_id": 0})
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    coupons_issued = await db.coupons.count_documents({"worker_id": worker_id})
+    coupons_pending = await db.coupons.count_documents({"worker_id": worker_id, "status": "PENDING"})
+    coupons_verified = await db.coupons.count_documents({"worker_id": worker_id, "status": {"$in": ["VERIFIED", "ACTIVE"]}})
+    
+    return CouponSummary(
+        worker_id=worker_id,
+        coupon_possession_count=worker.get("coupon_possession_count", 0),
+        coupons_issued=coupons_issued,
+        coupons_pending=coupons_pending,
+        coupons_verified=coupons_verified
+    )
+
+# ========== Update Possession Count ==========
+@api_router.patch("/workers/{worker_id}/coupons", response_model=dict)
+async def update_possession_count(
+    worker_id: str,
+    data: UpdatePossessionCount,
+    request: Request,
+    current_user: dict = Depends(require_roles("worker", "admin"))
+):
+    """Worker updates their coupon possession count"""
+    # Workers can only update their own count
+    if current_user["role"] == "worker" and current_user["sub"] != worker_id:
+        raise HTTPException(status_code=403, detail="Can only update own possession count")
+    
+    if data.coupon_possession_count < 0:
+        raise HTTPException(status_code=400, detail="Possession count cannot be negative")
+    
+    result = await db.users.update_one(
+        {"id": worker_id, "role": "worker"},
+        {"$set": {"coupon_possession_count": data.coupon_possession_count}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="POSSESSION_UPDATED",
+        entity="user",
+        entity_id=worker_id,
+        metadata={"new_count": data.coupon_possession_count},
+        request=request
+    )
+    
+    return {"message": "Updated successfully", "coupon_possession_count": data.coupon_possession_count}
+
+# ========== CRE Verify Coupon ==========
+@api_router.patch("/coupons/{coupon_id}/verify")
+async def verify_coupon(
+    coupon_id: str,
+    data: CouponVerify,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin", "cre"))
+):
+    """CRE verifies coupon data extracted from photo"""
+    coupon = await db.coupons.find_one({"id": coupon_id}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    
+    if coupon["status"] != "PENDING":
+        raise HTTPException(status_code=400, detail="Coupon is not pending verification")
+    
+    update_data = {
+        "status": "VERIFIED" if data.verified else "CANCELLED",
+        "verified_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if data.corrected_name:
+        update_data["customer_name"] = data.corrected_name
+    if data.corrected_mobile:
+        normalized = normalize_phone(data.corrected_mobile)
+        update_data["customer_phone"] = encrypt_mobile(normalized)
+        update_data["customer_phone_last4"] = get_last4_digits(normalized)
+    
+    await db.coupons.update_one({"id": coupon_id}, {"$set": update_data})
+    
+    # If verified, make it active
+    if data.verified:
+        await db.coupons.update_one({"id": coupon_id}, {"$set": {"status": "ACTIVE"}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="COUPON_VERIFIED",
+        entity="coupon",
+        entity_id=coupon_id,
+        metadata={"verified": data.verified, "notes": data.notes},
+        request=request
+    )
+    
+    # Notify via WebSocket
+    ws_message = {
+        "type": "coupon_verified",
+        "data": {
+            "coupon_id": coupon_id,
+            "verified": data.verified,
+            "verified_by": current_user["sub"]
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    await manager.broadcast_to_roles(["admin", "cre"], ws_message)
+    
+    return {"message": "Coupon verified successfully" if data.verified else "Coupon cancelled", "status": update_data["status"]}
+
+# ========== Get Coupons with Role-Based Access ==========
 @api_router.get("/coupons")
 async def get_coupons(
     status: Optional[str] = None,
     search: Optional[str] = None,
+    pending_only: bool = False,
     request: Request = None,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Get coupons with role-based data visibility:
-    - Admin/CRE: See all coupons with full mobile numbers
-    - Worker: See only own coupons with full mobile
-    - Branch: See assigned coupons with masked mobile (last 4 digits only)
-    """
     query = {}
     role = current_user["role"]
     
-    # Role-based query filtering
     if role == "worker":
         query["worker_id"] = current_user["sub"]
     elif role == "branch":
-        # Branch sees only coupons linked to their bookings
         user = await db.users.find_one({"id": current_user["sub"]}, {"_id": 0})
         if user and user.get("branch_id"):
-            # Get booking IDs for this branch
             bookings = await db.bookings.find({"branch_id": user["branch_id"]}, {"coupon_id": 1}).to_list(1000)
             coupon_ids = [b["coupon_id"] for b in bookings if b.get("coupon_id")]
             query["id"] = {"$in": coupon_ids}
-    # Admin/CRE see all
     
     if status:
         query["status"] = status
     
-    # Search functionality
+    if pending_only and role in ["admin", "cre"]:
+        query["status"] = "PENDING"
+    
     if search:
-        # Audit search query
         await create_audit_log(
             user_id=current_user["sub"],
             user_role=role,
@@ -467,8 +783,6 @@ async def get_coupons(
             metadata={"search_term": search},
             request=request
         )
-        
-        # Search by name, code, or last 4 digits
         query["$or"] = [
             {"customer_name": {"$regex": search, "$options": "i"}},
             {"code": {"$regex": search, "$options": "i"}},
@@ -477,18 +791,27 @@ async def get_coupons(
     
     coupons = await db.coupons.find(query, {"_id": 0}).sort("issued_at", -1).to_list(100)
     
-    # Format response based on role
     results = []
     for c in coupons:
         if isinstance(c.get("issued_at"), str):
             c["issued_at"] = datetime.fromisoformat(c["issued_at"])
         if isinstance(c.get("redeemed_at"), str):
             c["redeemed_at"] = datetime.fromisoformat(c["redeemed_at"])
+        if isinstance(c.get("verified_at"), str):
+            c["verified_at"] = datetime.fromisoformat(c["verified_at"])
         if isinstance(c.get("expires_at"), str):
             c["expires_at"] = datetime.fromisoformat(c["expires_at"])
         
+        # Log access for sensitive data
         if role in ["admin", "cre"]:
-            # Full access - decrypt mobile
+            await create_issuance_log(
+                coupon_id=c["id"],
+                accessed_by=current_user["sub"],
+                role=role,
+                fields_accessed=["customerMobile", "location"]
+            )
+        
+        if role in ["admin", "cre"]:
             decrypted_phone = decrypt_mobile(c.get("customer_phone", ""))
             results.append(CouponResponseFull(
                 id=c["id"],
@@ -502,12 +825,14 @@ async def get_coupons(
                 photo_url=c.get("photo_url"),
                 area_id=c.get("area_id"),
                 booking_id=c.get("booking_id"),
+                assigned_to_cre=c.get("assigned_to_cre"),
+                ocr_confidence=c.get("ocr_confidence", 0),
                 issued_at=c["issued_at"],
+                verified_at=c.get("verified_at"),
                 redeemed_at=c.get("redeemed_at"),
                 expires_at=c.get("expires_at")
             ))
         elif role == "branch":
-            # Masked access - only last 4 digits
             results.append(CouponResponseMasked(
                 id=c["id"],
                 code=c["code"],
@@ -517,7 +842,7 @@ async def get_coupons(
                 issued_at=c["issued_at"],
                 redeemed_at=c.get("redeemed_at")
             ))
-        else:  # Worker
+        else:
             decrypted_phone = decrypt_mobile(c.get("customer_phone", ""))
             results.append(CouponResponseWorker(
                 id=c["id"],
@@ -529,6 +854,7 @@ async def get_coupons(
                 longitude=c.get("longitude"),
                 photo_url=c.get("photo_url"),
                 area_id=c.get("area_id"),
+                ocr_confidence=c.get("ocr_confidence", 0),
                 issued_at=c["issued_at"],
                 redeemed_at=c.get("redeemed_at")
             ))
@@ -543,20 +869,22 @@ async def get_coupon(coupon_id: str, current_user: dict = Depends(get_current_us
     
     role = current_user["role"]
     
-    # Permission check
     if role == "worker" and coupon["worker_id"] != current_user["sub"]:
-        raise HTTPException(status_code=403, detail="Access denied to this coupon")
+        raise HTTPException(status_code=403, detail="Access denied")
     
     if isinstance(coupon.get("issued_at"), str):
         coupon["issued_at"] = datetime.fromisoformat(coupon["issued_at"])
     if isinstance(coupon.get("redeemed_at"), str):
         coupon["redeemed_at"] = datetime.fromisoformat(coupon["redeemed_at"])
+    if isinstance(coupon.get("verified_at"), str):
+        coupon["verified_at"] = datetime.fromisoformat(coupon["verified_at"])
     if isinstance(coupon.get("expires_at"), str):
         coupon["expires_at"] = datetime.fromisoformat(coupon["expires_at"])
     
     decrypted_phone = decrypt_mobile(coupon.get("customer_phone", ""))
     
     if role in ["admin", "cre"]:
+        await create_issuance_log(coupon_id, current_user["sub"], role, ["customerMobile", "location"])
         return CouponResponseFull(
             id=coupon["id"],
             code=coupon["code"],
@@ -569,7 +897,10 @@ async def get_coupon(coupon_id: str, current_user: dict = Depends(get_current_us
             photo_url=coupon.get("photo_url"),
             area_id=coupon.get("area_id"),
             booking_id=coupon.get("booking_id"),
+            assigned_to_cre=coupon.get("assigned_to_cre"),
+            ocr_confidence=coupon.get("ocr_confidence", 0),
             issued_at=coupon["issued_at"],
+            verified_at=coupon.get("verified_at"),
             redeemed_at=coupon.get("redeemed_at"),
             expires_at=coupon.get("expires_at")
         )
@@ -594,50 +925,43 @@ async def get_coupon(coupon_id: str, current_user: dict = Depends(get_current_us
             longitude=coupon.get("longitude"),
             photo_url=coupon.get("photo_url"),
             area_id=coupon.get("area_id"),
+            ocr_confidence=coupon.get("ocr_confidence", 0),
             issued_at=coupon["issued_at"],
             redeemed_at=coupon.get("redeemed_at")
         )
 
 @api_router.post("/coupons/request-otp")
 async def request_otp(data: OTPRequest, request: Request):
-    # Find coupon by code
     coupon = await db.coupons.find_one({"code": data.coupon_code}, {"_id": 0})
     if not coupon:
         raise HTTPException(status_code=404, detail="Coupon not found")
     
-    if coupon["status"] != "ACTIVE":
+    if coupon["status"] not in ["ACTIVE", "VERIFIED"]:
         raise HTTPException(status_code=400, detail=f"Coupon is {coupon['status']}, cannot redeem")
     
-    # Verify phone matches (compare with decrypted)
     decrypted_phone = decrypt_mobile(coupon.get("customer_phone", ""))
     normalized_input = normalize_phone(data.phone)
     
     if decrypted_phone != normalized_input:
         raise HTTPException(status_code=400, detail="Phone number does not match")
     
-    # Generate and store OTP
     otp = store_otp(data.phone, data.coupon_code)
-    
-    # In MVP, we log the OTP (in production, send via SMS)
     logger.info(f"[MOCK OTP] Coupon: {data.coupon_code}, Phone: {data.phone}, OTP: {otp}")
     
-    return {"message": "OTP sent successfully", "mock_otp": otp}  # Remove mock_otp in production
+    return {"message": "OTP sent successfully", "mock_otp": otp}
 
 @api_router.post("/coupons/verify-otp")
 async def verify_otp_route(data: OTPVerify, request: Request):
-    # Find coupon
     coupon = await db.coupons.find_one({"code": data.coupon_code}, {"_id": 0})
     if not coupon:
         raise HTTPException(status_code=404, detail="Coupon not found")
     
-    if coupon["status"] != "ACTIVE":
+    if coupon["status"] not in ["ACTIVE", "VERIFIED"]:
         raise HTTPException(status_code=400, detail=f"Coupon is {coupon['status']}, cannot redeem")
     
-    # Verify OTP
     if not verify_otp(data.phone, data.coupon_code, data.otp):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
     
-    # Update coupon status
     await db.coupons.update_one(
         {"code": data.coupon_code},
         {"$set": {
@@ -646,7 +970,6 @@ async def verify_otp_route(data: OTPVerify, request: Request):
         }}
     )
     
-    # Audit log
     await create_audit_log(
         user_id="customer",
         user_role="customer",
@@ -659,10 +982,9 @@ async def verify_otp_route(data: OTPVerify, request: Request):
     
     return {"message": "Coupon redeemed successfully", "coupon_id": coupon["id"]}
 
-# ========== Booking Routes with RBAC ==========
+# ========== Booking Routes ==========
 @api_router.post("/bookings", response_model=BookingResponse)
 async def create_booking(data: BookingCreate, request: Request):
-    # Get coupon info
     coupon = await db.coupons.find_one({"id": data.coupon_id}, {"_id": 0})
     if not coupon:
         raise HTTPException(status_code=404, detail="Coupon not found")
@@ -687,14 +1009,8 @@ async def create_booking(data: BookingCreate, request: Request):
     doc["created_at"] = doc["created_at"].isoformat()
     
     await db.bookings.insert_one(doc)
+    await db.coupons.update_one({"id": data.coupon_id}, {"$set": {"booking_id": booking.id}})
     
-    # Update coupon with booking_id
-    await db.coupons.update_one(
-        {"id": data.coupon_id},
-        {"$set": {"booking_id": booking.id}}
-    )
-    
-    # Audit log
     await create_audit_log(
         user_id="customer",
         user_role="customer",
@@ -716,7 +1032,6 @@ async def get_bookings(
     query = {}
     role = current_user["role"]
     
-    # Branch managers see only their branch bookings
     if role == "branch":
         user = await db.users.find_one({"id": current_user["sub"]}, {"_id": 0})
         if user and user.get("branch_id"):
@@ -738,7 +1053,6 @@ async def get_bookings(
                 b[field] = datetime.fromisoformat(b[field])
         
         if role == "branch":
-            # Masked response for branch
             results.append(BookingResponseMasked(
                 id=b["id"],
                 coupon_id=b["coupon_id"],
@@ -810,13 +1124,11 @@ async def update_booking_status(
     if data.completion_photo_url:
         update_data["completion_photo_url"] = data.completion_photo_url
     
-    # Set timestamps based on status
     now = datetime.now(timezone.utc).isoformat()
     if data.status == "DISPATCHED":
         update_data["dispatched_at"] = now
     elif data.status == "COMPLETED":
         update_data["completed_at"] = now
-        # Mark coupon as utilized
         await db.coupons.update_one(
             {"id": booking["coupon_id"]},
             {"$set": {"status": "UTILIZED"}}
@@ -824,7 +1136,6 @@ async def update_booking_status(
     
     await db.bookings.update_one({"id": booking_id}, {"$set": update_data})
     
-    # Audit log
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
@@ -849,7 +1160,7 @@ async def assign_branch(
     booking_id: str,
     data: BranchAssign,
     request: Request,
-    current_user: dict = Depends(require_roles("admin"))  # Only admin can assign
+    current_user: dict = Depends(require_roles("admin"))
 ):
     booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     if not booking:
@@ -868,7 +1179,6 @@ async def assign_branch(
         }}
     )
     
-    # Audit log
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
@@ -898,7 +1208,6 @@ async def create_branch(data: BranchCreate, request: Request, current_user: dict
     
     await db.branches.insert_one(doc)
     
-    # Audit log
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
@@ -1015,7 +1324,6 @@ async def update_location(data: LocationUpdate, current_user: dict = Depends(req
 
 @api_router.get("/location/workers")
 async def get_worker_locations(current_user: dict = Depends(require_roles("admin", "cre", "branch"))):
-    # Get latest location for each worker
     pipeline = [
         {"$sort": {"timestamp": -1}},
         {"$group": {
@@ -1029,7 +1337,6 @@ async def get_worker_locations(current_user: dict = Depends(require_roles("admin
     
     locations = await db.location_logs.aggregate(pipeline).to_list(100)
     
-    # Get worker names
     for loc in locations:
         worker = await db.users.find_one({"id": loc["worker_id"]}, {"_id": 0, "name": 1})
         loc["name"] = worker["name"] if worker else "Unknown"
@@ -1041,21 +1348,18 @@ async def get_worker_locations(current_user: dict = Depends(require_roles("admin
 async def get_dashboard_stats(current_user: dict = Depends(require_roles("admin", "cre"))):
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Total workers
     total_workers = await db.users.count_documents({"role": "worker"})
-    
-    # Active workers (punched in today)
     active_workers = await db.attendance.count_documents({
         "type": "PUNCH_IN",
         "timestamp": {"$gte": today_start.isoformat()}
     })
     
-    # Total coupons today
     total_coupons_today = await db.coupons.count_documents({
         "issued_at": {"$gte": today_start.isoformat()}
     })
     
-    # Redeemed coupons today
+    coupons_pending = await db.coupons.count_documents({"status": "PENDING"})
+    
     redeemed_today = await db.coupons.count_documents({
         "issued_at": {"$gte": today_start.isoformat()},
         "status": {"$in": ["REDEEMED", "UTILIZED"]}
@@ -1064,17 +1368,15 @@ async def get_dashboard_stats(current_user: dict = Depends(require_roles("admin"
     redemption_rate = (redeemed_today / total_coupons_today * 100) if total_coupons_today > 0 else 0
     attendance_rate = (active_workers / total_workers * 100) if total_workers > 0 else 0
     
-    # Bookings
     pending_bookings = await db.bookings.count_documents({"status": {"$in": ["PENDING", "ASSIGNED"]}})
     completed_bookings = await db.bookings.count_documents({"status": "COMPLETED"})
-    
-    # Branches
     total_branches = await db.branches.count_documents({})
     
     return DashboardStats(
         total_workers=total_workers,
         active_workers=active_workers,
         total_coupons_today=total_coupons_today,
+        coupons_pending_verification=coupons_pending,
         redemption_rate=round(redemption_rate, 1),
         attendance_rate=round(attendance_rate, 1),
         pending_bookings=pending_bookings,
@@ -1082,7 +1384,7 @@ async def get_dashboard_stats(current_user: dict = Depends(require_roles("admin"
         total_branches=total_branches
     )
 
-# ========== Audit Log Routes (Admin/CRE only) ==========
+# ========== Audit Log Routes ==========
 @api_router.get("/audit-logs", response_model=List[AuditLogResponse])
 async def get_audit_logs(
     action: Optional[str] = None,
@@ -1107,11 +1409,42 @@ async def get_audit_logs(
     
     return logs
 
-# ========== Worker Management Routes ==========
+# ========== Issuance Logs ==========
+@api_router.get("/issuance-logs", response_model=List[IssuanceLogResponse])
+async def get_issuance_logs(
+    coupon_id: Optional[str] = None,
+    limit: int = 100,
+    current_user: dict = Depends(require_roles("admin", "cre"))
+):
+    query = {}
+    if coupon_id:
+        query["coupon_id"] = coupon_id
+    
+    logs = await db.issuance_logs.find(query, {"_id": 0}).sort("timestamp", -1).to_list(limit)
+    
+    for log in logs:
+        if isinstance(log.get("timestamp"), str):
+            log["timestamp"] = datetime.fromisoformat(log["timestamp"])
+    
+    return logs
+
+# ========== Worker Management ==========
 @api_router.get("/workers", response_model=List[UserResponse])
 async def get_workers(current_user: dict = Depends(require_roles("admin", "cre"))):
     workers = await db.users.find({"role": "worker"}, {"_id": 0, "password_hash": 0}).to_list(100)
     return workers
+
+@api_router.get("/workers/{worker_id}", response_model=UserResponse)
+async def get_worker(worker_id: str, current_user: dict = Depends(get_current_user)):
+    worker = await db.users.find_one({"id": worker_id, "role": "worker"}, {"_id": 0, "password_hash": 0})
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    # Mask mobile for branch users
+    if current_user["role"] == "branch":
+        worker["phone"] = mask_mobile(worker.get("phone", ""))
+    
+    return worker
 
 @api_router.patch("/workers/{worker_id}")
 async def update_worker(
@@ -1120,7 +1453,7 @@ async def update_worker(
     branch_id: Optional[str] = None,
     is_active: Optional[bool] = None,
     request: Request = None,
-    current_user: dict = Depends(require_roles("admin"))  # Only admin can manage users
+    current_user: dict = Depends(require_roles("admin"))
 ):
     update_data = {}
     if area_id is not None:
@@ -1138,7 +1471,6 @@ async def update_worker(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Worker not found")
     
-    # Audit log
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
@@ -1151,7 +1483,7 @@ async def update_worker(
     
     return {"message": "Worker updated successfully"}
 
-# ========== User Management (Admin only) ==========
+# ========== User Management ==========
 @api_router.get("/users", response_model=List[UserResponse])
 async def get_users(current_user: dict = Depends(require_roles("admin"))):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(100)
@@ -1164,16 +1496,13 @@ async def upload_file(
     request: Request = None,
     current_user: dict = Depends(get_current_user)
 ):
-    # Generate unique filename
     ext = Path(file.filename).suffix if file.filename else ".jpg"
     filename = f"{uuid.uuid4()}{ext}"
     filepath = UPLOAD_DIR / filename
     
-    # Save file
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    # Audit log
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
@@ -1183,13 +1512,12 @@ async def upload_file(
         request=request
     )
     
-    # Return URL
     return {"url": f"/uploads/{filename}"}
 
 # ========== Health Check ==========
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat(), "version": "2.0.0"}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat(), "version": "2.1.0"}
 
 # Include the router
 app.include_router(api_router)
