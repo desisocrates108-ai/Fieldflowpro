@@ -76,8 +76,11 @@ export const attendanceAPI = {
 // Coupon APIs
 export const couponAPI = {
   create: (data) => api.post('/coupons/create', data),
-  getAll: (status) => api.get('/coupons', { params: { status } }),
+  issue: (data) => api.post('/coupons/issue', data),
+  getAll: (status, pendingOnly) => api.get('/coupons', { params: { status, pending_only: pendingOnly } }),
   getById: (id) => api.get(`/coupons/${id}`),
+  getSummary: () => api.get('/coupons/summary'),
+  verify: (id, data) => api.patch(`/coupons/${id}/verify`, data),
   requestOTP: (couponCode, phone) => api.post('/coupons/request-otp', { coupon_code: couponCode, phone }),
   verifyOTP: (couponCode, phone, otp) => api.post('/coupons/verify-otp', { coupon_code: couponCode, phone, otp }),
 };
@@ -119,7 +122,9 @@ export const dashboardAPI = {
 // Worker APIs
 export const workerAPI = {
   getAll: () => api.get('/workers'),
+  getById: (id) => api.get(`/workers/${id}`),
   update: (id, data) => api.patch(`/workers/${id}`, { params: data }),
+  updatePossession: (id, count) => api.patch(`/workers/${id}/coupons`, { coupon_possession_count: count }),
 };
 
 // File Upload
