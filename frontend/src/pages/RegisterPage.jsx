@@ -152,7 +152,8 @@ export default function RegisterPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="worker">Worker</SelectItem>
-                    <SelectItem value="branch_manager">Branch Manager</SelectItem>
+                    <SelectItem value="branch">Branch Manager</SelectItem>
+                    <SelectItem value="cre">CRE (Customer Relations)</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
