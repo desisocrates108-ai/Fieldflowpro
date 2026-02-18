@@ -675,9 +675,6 @@ async def get_inactive_workers_panel(
     current_user: dict = Depends(require_roles("admin", "cre"))
 ):
     """Get detailed inactive workers panel for admin dashboard"""
-    now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    
     # Get active inactivity alerts
     alerts = await db.inactivity_logs.find(
         {"status": "ACTIVE"},
