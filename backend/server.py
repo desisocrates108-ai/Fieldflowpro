@@ -34,8 +34,16 @@ from auth import (
 from utils import (
     generate_coupon_code, store_otp, verify_otp, 
     find_nearest_branch, serialize_datetime,
-    encrypt_mobile, decrypt_mobile, normalize_phone, validate_phone, validate_customer_name
+    encrypt_mobile, decrypt_mobile, normalize_phone, validate_phone, validate_customer_name,
+    calculate_haversine_distance
 )
+
+# Import new route modules
+import routes_campaigns
+import routes_areas
+import routes_ledger
+import routes_admin
+import background_tasks
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -50,7 +58,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app
-app = FastAPI(title="FieldFlow Pro API", version="2.1.0")
+app = FastAPI(title="FieldFlow Pro API", version="3.0.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
