@@ -16,13 +16,16 @@ import AdminCouponsPage from "./pages/admin/Coupons";
 import AdminBookingsPage from "./pages/admin/Bookings";
 import BranchesPage from "./pages/admin/Branches";
 import LiveMapPage from "./pages/admin/LiveMap";
+import CampaignsPage from "./pages/admin/Campaigns";
 
 // Worker Pages
 import WorkerDashboard from "./pages/worker/Dashboard";
 import AttendancePage from "./pages/worker/Attendance";
 import IssueCouponPage from "./pages/worker/IssueCoupon";
+import SellCouponPage from "./pages/worker/SellCoupon";
 import MyCouponsPage from "./pages/worker/MyCoupons";
 import TasksPage from "./pages/worker/Tasks";
+import ExpensesPage from "./pages/worker/Expenses";
 
 // Branch Pages
 import BranchBookings from "./pages/branch/Bookings";
