@@ -807,3 +807,170 @@ class AdminDashboardStats(BaseModel):
     # Financial
     total_advances_month: float
     net_payable_all_workers: float
+
+
+# ========== CRE Call Log Models ==========
+class CRECallLog(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=generate_uuid)
+    coupon_id: str
+    cre_id: str
+    customer_name: str
+    customer_phone: str
+    call_timestamp: datetime = Field(default_factory=current_utc)
+    call_duration: Optional[int] = None  # seconds
+    call_status: str = "CALLED"
+    remarks: Optional[str] = None
+    remarks_timestamp: Optional[datetime] = None
+
+class CRECallLogCreate(BaseModel):
+    coupon_id: str
+
+class CRECallLogRemarks(BaseModel):
+    remarks: str
+
+class CRECallLogResponse(BaseModel):
+    id: str
+    coupon_id: str
+    coupon_code: str
+    cre_id: str
+    cre_name: str
+    customer_name: str
+    customer_phone: str
+    call_timestamp: datetime
+    call_status: str
+    remarks: Optional[str]
+    remarks_timestamp: Optional[datetime]
+
+# ========== Branch Encashment Models ==========
+class EncashmentRequest(BaseModel):
+    coupon_code: str
+
+class EncashmentResponse(BaseModel):
+    success: bool
+    coupon_id: str
+    coupon_code: str
+    campaign_name: str
+    campaign_price: float
+    customer_name: str
+    encashed_at: datetime
+    message: str
+
+class EncashmentRecord(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=generate_uuid)
+    coupon_id: str
+    branch_id: str
+    encashed_by: str
+    campaign_price: float
+    encashed_at: datetime = Field(default_factory=current_utc)
+
+# ========== Enhanced Sale Request (Worker) ==========
+class WorkerSaleRequest(BaseModel):
+    # Manual entry
+    customer_name: str
+    customer_phone: str
+    
+    # OCR detected (for comparison)
+    ocr_detected_name: Optional[str] = None
+    ocr_detected_phone: Optional[str] = None
+    ocr_confidence: float = 0.0
+    
+    # Coupon code (mandatory)
+    coupon_code: str
+    
+    # Branch selection (mandatory)
+    branch_id: str
+    
+    # Location
+    latitude: float
+    longitude: float
+    gps_accuracy: Optional[float] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    area_name: Optional[str] = None
+    
+    # Photo
+    image_base64: Optional[str] = None
+
+class WorkerSaleResponse(BaseModel):
+    success: bool
+    coupon_id: str
+    coupon_code: str
+    campaign_name: str
+    campaign_price: float
+    customer_name: str
+    branch_name: str
+    message: str
+    ocr_mismatch_warning: Optional[str] = None
+
+# ========== CRE Customer View ==========
+class CRECustomerView(BaseModel):
+    coupon_id: str
+    coupon_code: str
+    customer_name: str
+    customer_phone: str  # Full phone for CRE
+    campaign_name: str
+    branch_id: str
+    branch_name: str
+    sold_at: datetime
+    call_status: str
+    last_call_timestamp: Optional[datetime]
+    last_remarks: Optional[str]
+
+# ========== CRE Dashboard Stats ==========
+class CREDashboardStats(BaseModel):
+    today_total_customers: int
+    today_calls_made: int
+    pending_calls: int
+
+# ========== Branch Customer View ==========
+class BranchCustomerView(BaseModel):
+    coupon_id: str
+    coupon_code: str
+    customer_name: str
+    mobile_last4: str  # Masked for branch
+    campaign_name: str
+    sold_at: datetime
+    status: str  # SOLD or ENCASHED
+
+# ========== Admin Ledger View ==========
+class AdminLedgerView(BaseModel):
+    worker_id: str
+    worker_name: str
+    worker_email: str
+    worker_phone: Optional[str]
+    total_coupons_sold: int
+    total_revenue: float
+    total_expenses: float
+    total_advances: float
+    net_payable: float
+    last_sale_date: Optional[datetime]
+    expenses_list: List[dict]  # With bill photos
+
+# ========== Admin CRE Remarks View ==========
+class AdminCRERemarkView(BaseModel):
+    id: str
+    cre_id: str
+    cre_name: str
+    coupon_code: str
+    customer_name: str
+    customer_phone: str
+    call_timestamp: datetime
+    remarks: str
+    remarks_timestamp: datetime
+
+# ========== Admin Encashment View ==========
+class AdminEncashmentView(BaseModel):
+    id: str
+    coupon_id: str
+    coupon_code: str
+    campaign_name: str
+    campaign_price: float
+    customer_name: str
+    branch_id: str
+    branch_name: str
+    encashed_by_name: str
+    encashed_at: datetime
