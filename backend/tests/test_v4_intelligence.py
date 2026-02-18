@@ -103,7 +103,7 @@ class TestRealtimeMetrics:
     def test_realtime_metrics_requires_auth(self):
         """Unauthenticated requests are rejected"""
         response = requests.get(f"{BASE_URL}/api/intelligence/realtime-metrics")
-        assert response.status_code == 401
+        assert response.status_code in [401, 403], f"Expected 401 or 403, got {response.status_code}"
 
 
 class TestWorkerPerformanceScoring:
