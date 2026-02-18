@@ -495,7 +495,7 @@ async def sell_coupon(
             with open(filepath, 'wb') as f:
                 f.write(img_data)
             photo_url = f"/uploads/{filename}"
-        except Exception as e:
+        except Exception:
             pass  # Continue without photo
     
     # Update coupon as sold
@@ -589,7 +589,7 @@ async def reverse_geocode(lat: float, lng: float) -> dict:
                         "area": address.get("suburb") or address.get("neighbourhood") or address.get("locality", ""),
                         "full_address": data.get("display_name", "")
                     }
-    except Exception as e:
+    except Exception:
         pass
     return {"city": "", "state": "", "area": "", "full_address": ""}
 
