@@ -28,6 +28,7 @@ const getNavItems = (role) => {
     admin: [
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/admin/workers', icon: Users, label: 'Workers' },
+      { path: '/admin/campaigns', icon: Package, label: 'Campaigns' },
       { path: '/admin/coupons', icon: Ticket, label: 'Coupons' },
       { path: '/admin/bookings', icon: ClipboardList, label: 'Bookings' },
       { path: '/admin/branches', icon: Building2, label: 'Branches' },
@@ -43,8 +44,9 @@ const getNavItems = (role) => {
     worker: [
       { path: '/worker', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/worker/attendance', icon: Clock, label: 'Attendance' },
-      { path: '/worker/coupons', icon: Ticket, label: 'Issue Coupon' },
-      { path: '/worker/my-coupons', icon: FileText, label: 'My Coupons' },
+      { path: '/worker/sell', icon: Ticket, label: 'Sell Coupon' },
+      { path: '/worker/expenses', icon: Receipt, label: 'Expenses' },
+      { path: '/worker/my-coupons', icon: FileText, label: 'My Sales' },
       { path: '/worker/tasks', icon: ClipboardList, label: 'Tasks' },
     ],
     branch: [
