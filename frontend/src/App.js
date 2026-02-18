@@ -240,7 +240,7 @@ function AppRoutes() {
         path="/branch"
         element={
           <ProtectedRoute allowedRoles={['branch']}>
-            <BranchBookings />
+            <BranchDashboard />
           </ProtectedRoute>
         }
       />
