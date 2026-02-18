@@ -31,29 +31,23 @@ const getNavItems = (role) => {
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/admin/workers', icon: Users, label: 'Workers' },
       { path: '/admin/campaigns', icon: Package, label: 'Campaigns' },
+      { path: '/admin/ledger', icon: Receipt, label: 'Ledger' },
       { path: '/admin/coupons', icon: Ticket, label: 'Coupons' },
-      { path: '/admin/bookings', icon: ClipboardList, label: 'Bookings' },
       { path: '/admin/branches', icon: Building2, label: 'Branches' },
-      { path: '/admin/map', icon: Map, label: 'Live Map' },
       { path: '/admin/audit-logs', icon: FileText, label: 'Audit Logs' },
     ],
     cre: [
-      { path: '/cre', icon: LayoutDashboard, label: 'Dashboard' },
-      { path: '/cre/coupons', icon: Ticket, label: 'Coupons' },
-      { path: '/cre/bookings', icon: ClipboardList, label: 'Bookings' },
-      { path: '/cre/audit-logs', icon: FileText, label: 'Audit Logs' },
+      { path: '/cre', icon: LayoutDashboard, label: 'Customers' },
     ],
     worker: [
       { path: '/worker', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/worker/attendance', icon: Clock, label: 'Attendance' },
-      { path: '/worker/sell', icon: Ticket, label: 'Sell Coupon' },
+      { path: '/worker/sell', icon: Ticket, label: 'Sale Coupon' },
       { path: '/worker/expenses', icon: Receipt, label: 'Expenses' },
       { path: '/worker/my-coupons', icon: FileText, label: 'My Sales' },
-      { path: '/worker/tasks', icon: ClipboardList, label: 'Tasks' },
     ],
     branch: [
       { path: '/branch', icon: LayoutDashboard, label: 'Dashboard' },
-      { path: '/branch/bookings', icon: ClipboardList, label: 'Bookings' },
     ],
   };
   return items[role] || [];
