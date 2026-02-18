@@ -117,6 +117,51 @@ export const locationAPI = {
 // Dashboard APIs
 export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
+  getAdminStats: () => api.get('/admin/dashboard/stats'),
+};
+
+// Intelligence APIs (Elite v4.0)
+export const intelligenceAPI = {
+  // Real-time metrics
+  getRealtimeMetrics: () => api.get('/intelligence/realtime-metrics'),
+  
+  // Fraud Detection
+  getFraudAlerts: (status = 'ACTIVE') => api.get('/intelligence/fraud-alerts', { params: { status } }),
+  resolveFraudAlert: (id, notes) => api.patch(`/intelligence/fraud-alerts/${id}/resolve`, null, { params: { notes } }),
+  dismissFraudAlert: (id, notes) => api.patch(`/intelligence/fraud-alerts/${id}/dismiss`, null, { params: { notes } }),
+  runFraudScan: () => api.post('/intelligence/scan-fraud'),
+  
+  // Worker Performance
+  getWorkerScores: () => api.get('/intelligence/worker-scores'),
+  getWorkerScore: (id) => api.get(`/intelligence/worker-scores/${id}`),
+  
+  // Inactive Workers
+  getInactiveWorkers: () => api.get('/intelligence/inactive-workers'),
+  
+  // Area Intelligence
+  getAreaIntelligence: () => api.get('/intelligence/area-intelligence'),
+};
+
+// Admin APIs
+export const adminAPI = {
+  getDashboardStats: () => api.get('/admin/dashboard/stats'),
+  getInactivityAlerts: (status) => api.get('/admin/inactivity-alerts', { params: { status } }),
+  resolveInactivityAlert: (id, notes) => api.patch(`/admin/inactivity-alerts/${id}/resolve`, null, { params: { notes } }),
+  dismissInactivityAlert: (id, notes) => api.patch(`/admin/inactivity-alerts/${id}/dismiss`, null, { params: { notes } }),
+  getSpoofingAlerts: () => api.get('/admin/spoofing-alerts'),
+  
+  // Worker management
+  createWorker: (data) => api.post('/admin/workers', data),
+  updateWorker: (id, data) => api.patch(`/admin/workers/${id}`, data),
+  disableWorker: (id) => api.post(`/admin/workers/${id}/disable`),
+  enableWorker: (id) => api.post(`/admin/workers/${id}/enable`),
+  deleteWorker: (id) => api.delete(`/admin/workers/${id}`),
+  resetWorkerPassword: (id, password) => api.post(`/admin/workers/${id}/reset-password`, { new_password: password }),
+  addWorkerAdvance: (id, data) => api.post(`/workers/${id}/advance`, data),
+  
+  // CRE & Encashments
+  getCRERemarks: () => api.get('/admin/cre-remarks'),
+  getEncashments: () => api.get('/admin/encashments'),
 };
 
 // Worker APIs
