@@ -974,3 +974,89 @@ class AdminEncashmentView(BaseModel):
     branch_name: str
     encashed_by_name: str
     encashed_at: datetime
+
+
+
+# ========== Elite v4.0 - Fraud Detection Models ==========
+FraudAlertType = Literal[
+    "DUPLICATE_MOBILE",      # Same mobile used multiple times
+    "GPS_CLUSTERING",        # Multiple sales from same GPS in short time
+    "IMPOSSIBLE_TRAVEL",     # GPS jump >50km in <10 mins
+    "HIGH_EXPENSE_RATIO",    # Expense to revenue ratio too high
+    "PATTERN_MANIPULATION",  # Coupon code pattern manipulation
+    "GPS_ACCURACY_LOW"       # Consistently low GPS accuracy
+]
+
+FraudAlertStatus = Literal["ACTIVE", "RESOLVED", "DISMISSED"]
+FraudSeverity = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+
+class FraudAlert(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=generate_uuid)
+    alert_type: str
+    worker_id: str
+    severity: str = "MEDIUM"
+    details: dict = {}
+    related_entity_id: Optional[str] = None
+    status: str = "ACTIVE"
+    created_at: datetime = Field(default_factory=current_utc)
+    resolved_at: Optional[datetime] = None
+    resolved_by: Optional[str] = None
+    resolution_notes: Optional[str] = None
+
+class FraudAlertResponse(BaseModel):
+    id: str
+    alert_type: str
+    worker_id: str
+    worker_name: str
+    severity: str
+    details: dict
+    related_entity_id: Optional[str]
+    status: str
+    created_at: datetime
+    resolved_at: Optional[datetime]
+    resolved_by: Optional[str]
+    resolution_notes: Optional[str]
+
+# ========== Elite v4.0 - Worker Performance Scoring ==========
+class WorkerPerformanceScore(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=generate_uuid)
+    worker_id: str
+    final_score: float
+    components: dict  # Individual component scores
+    metrics: dict     # Raw metrics used
+    grade: str
+    calculated_at: datetime = Field(default_factory=current_utc)
+
+class WorkerPerformanceResponse(BaseModel):
+    worker_id: str
+    worker_name: str
+    final_score: float
+    components: dict
+    metrics: dict
+    grade: str
+    calculated_at: str
+    rank: Optional[int] = None
+
+# ========== Elite v4.0 - Real-Time Metrics ==========
+class RealTimeMetrics(BaseModel):
+    live_sales_today: int
+    live_revenue_today: float
+    active_workers_now: int
+    total_punched_in_today: int
+    inactive_worker_alerts: int
+    fraud_alerts_active: int
+    pending_expenses: int
+    encashments_today: int
+    last_updated: str
+
+# ========== Elite v4.0 - Area Intelligence ==========
+class AreaIntelligence(BaseModel):
+    sales_by_city: List[dict]
+    sales_by_state: List[dict]
+    campaign_by_geography: List[dict]
+    top_areas: List[dict]
+    generated_at: str
