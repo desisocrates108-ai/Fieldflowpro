@@ -190,6 +190,22 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/worker/sell"
+        element={
+          <ProtectedRoute allowedRoles={['worker']}>
+            <SellCouponPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/worker/expenses"
+        element={
+          <ProtectedRoute allowedRoles={['worker']}>
+            <ExpensesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/worker/my-coupons"
         element={
           <ProtectedRoute allowedRoles={['worker']}>
