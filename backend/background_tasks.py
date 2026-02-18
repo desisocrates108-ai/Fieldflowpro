@@ -25,7 +25,7 @@ async def check_worker_inactivity():
     2. Haven't sold any coupon in 3+ hours since punch-in
     3. Don't already have an active alert
     """
-    if not db:
+    if db is None:
         return
     
     now = datetime.now(timezone.utc)
