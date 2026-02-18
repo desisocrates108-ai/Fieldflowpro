@@ -607,7 +607,7 @@ async def get_area_intelligence(
             "_id": {
                 "campaign_id": "$campaign_id",
                 "campaign_name": "$campaign.name",
-                "state": "$state"
+                "state": {"$ifNull": ["$state", "Unknown"]}
             },
             "sales": {"$sum": 1},
             "revenue": {"$sum": "$campaign.price"}
