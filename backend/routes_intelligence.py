@@ -646,9 +646,9 @@ async def get_area_intelligence(
         "sales_by_state": [{"state": s["_id"], "sales": s["total_sales"], "revenue": s["total_revenue"]} for s in sales_by_state],
         "campaign_by_geography": [
             {
-                "campaign_id": s["_id"]["campaign_id"],
-                "campaign_name": s["_id"]["campaign_name"],
-                "state": s["_id"]["state"],
+                "campaign_id": s["_id"].get("campaign_id", ""),
+                "campaign_name": s["_id"].get("campaign_name", ""),
+                "state": s["_id"].get("state", "Unknown"),
                 "sales": s["sales"],
                 "revenue": s["revenue"]
             }
