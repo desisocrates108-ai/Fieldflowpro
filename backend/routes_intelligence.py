@@ -206,8 +206,6 @@ async def run_fraud_scan(
 ):
     """Manually trigger fraud detection scan"""
     alerts_created = 0
-    now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
     
     # 1. Scan for duplicate mobiles
     pipeline = [
