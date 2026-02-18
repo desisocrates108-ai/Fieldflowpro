@@ -1498,6 +1498,36 @@ async def get_users(current_user: dict = Depends(require_roles("admin"))):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(100)
     return users
 
+@api_router.patch("/users/{user_id}/branch")
+async def assign_user_branch(
+    user_id: str,
+    branch_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin assigns a branch to any user (typically branch role users)"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    await db.users.update_one({"id": user_id}, {"$set": {"branch_id": branch_id}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_UPDATED",
+        entity="user",
+        entity_id=user_id,
+        metadata={"branch_id": branch_id, "branch_name": branch["name"]},
+        request=request
+    )
+    
+    return {"message": f"User assigned to branch '{branch['name']}'"}
+
 # ========== File Upload ==========
 @api_router.post("/upload")
 async def upload_file(
