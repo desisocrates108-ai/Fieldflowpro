@@ -684,10 +684,56 @@ async def worker_sale_coupon(
             }
             await db.location_spoofing_alerts.insert_one(spoofing_alert)
             
+            # Also create fraud alert
+            fraud_alert = {
+                "id": str(uuid.uuid4()),
+                "alert_type": "IMPOSSIBLE_TRAVEL",
+                "worker_id": worker_id,
+                "severity": "HIGH",
+                "details": {
+                    "distance_km": round(distance, 2),
+                    "time_diff_minutes": round(time_diff, 2),
+                    "from_location": f"{last_location['latitude']},{last_location['longitude']}",
+                    "to_location": f"{data.latitude},{data.longitude}"
+                },
+                "status": "ACTIVE",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.fraud_alerts.insert_one(fraud_alert)
+            
             raise HTTPException(
                 status_code=400,
                 detail=f"Location verification failed. Detected {round(distance, 1)}km movement in {round(time_diff, 1)} minutes."
             )
+    
+    # ===== GPS CLUSTERING CHECK (Multiple sales from same location in 20 mins) =====
+    time_threshold = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+    tolerance = 0.001  # ~111 meters
+    
+    nearby_sales_count = await db.campaign_coupons.count_documents({
+        "sold_by_worker_id": worker_id,
+        "sold_at": {"$gte": time_threshold},
+        "latitude": {"$gte": data.latitude - tolerance, "$lte": data.latitude + tolerance},
+        "longitude": {"$gte": data.longitude - tolerance, "$lte": data.longitude + tolerance}
+    })
+    
+    if nearby_sales_count >= 5:  # 5+ sales from same spot in 20 mins is suspicious
+        fraud_alert = {
+            "id": str(uuid.uuid4()),
+            "alert_type": "GPS_CLUSTERING",
+            "worker_id": worker_id,
+            "severity": "HIGH" if nearby_sales_count >= 10 else "MEDIUM",
+            "details": {
+                "sales_count": nearby_sales_count,
+                "time_window_minutes": 20,
+                "latitude": data.latitude,
+                "longitude": data.longitude
+            },
+            "status": "ACTIVE",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.fraud_alerts.insert_one(fraud_alert)
+        # Don't block the sale, just create the alert
     
     # ===== REVERSE GEOCODING =====
     city = data.city
