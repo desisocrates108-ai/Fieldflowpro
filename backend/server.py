@@ -1525,10 +1525,28 @@ async def upload_file(
 # ========== Health Check ==========
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat(), "version": "2.1.0"}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat(), "version": "3.0.0"}
+
+# ========== Initialize New Routes ==========
+async def get_update_ledger_func():
+    """Get the ledger update function from routes_ledger"""
+    return routes_ledger.update_worker_ledger
+
+# Initialize route modules with database and helper functions
+routes_campaigns.init_routes(db, create_audit_log, routes_ledger.update_worker_ledger, UPLOAD_DIR)
+routes_areas.init_routes(db, create_audit_log)
+routes_ledger.init_routes(db, create_audit_log, UPLOAD_DIR)
+routes_admin.init_routes(db, create_audit_log)
+background_tasks.init_background_tasks(db)
 
 # Include the router
 app.include_router(api_router)
+
+# Include new route routers
+app.include_router(routes_campaigns.router)
+app.include_router(routes_areas.router)
+app.include_router(routes_ledger.router)
+app.include_router(routes_admin.router)
 
 # Mount uploads directory
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
@@ -1541,6 +1559,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Start background tasks
+background_tasks.start_background_tasks(app)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
