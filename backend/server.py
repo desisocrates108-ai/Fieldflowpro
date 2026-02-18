@@ -1557,7 +1557,7 @@ async def upload_file(
 # ========== Health Check ==========
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat(), "version": "3.1.0"}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat(), "version": "4.0.0"}
 
 # ========== Initialize New Routes ==========
 async def get_update_ledger_func():
