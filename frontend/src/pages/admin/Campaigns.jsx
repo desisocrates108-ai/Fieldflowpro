@@ -1,0 +1,444 @@
+import React, { useState, useEffect } from 'react';
+import Layout from '../../components/Layout';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { 
+  Plus, Ticket, Package, IndianRupee, Hash, 
+  Loader2, Search, MoreVertical, Eye, Trash2, 
+  RefreshCcw, CheckCircle, XCircle
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+export default function CampaignsPage() {
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [campaignCoupons, setCampaignCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    total_count: '',
+    prefix: ''
+  });
+
+  const fetchCampaigns = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/campaigns`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCampaigns(data);
+      }
+    } catch (error) {
+      toast.error('Failed to load campaigns');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, []);
+
+  const handleCreate = async () => {
+    if (!formData.name || !formData.price || !formData.total_count || !formData.prefix) {
+      toast.error('Please fill all fields');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/campaigns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          price: parseFloat(formData.price),
+          total_count: parseInt(formData.total_count),
+          prefix: formData.prefix.toUpperCase()
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Campaign created successfully!');
+        setCreateDialogOpen(false);
+        setFormData({ name: '', price: '', total_count: '', prefix: '' });
+        fetchCampaigns();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to create campaign');
+      }
+    } catch (error) {
+      toast.error('Failed to create campaign');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const viewCampaignCoupons = async (campaign) => {
+    setSelectedCampaign(campaign);
+    setViewDialogOpen(true);
+    setCouponsLoading(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/campaigns/${campaign.id}/coupons?limit=50`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCampaignCoupons(data);
+      }
+    } catch (error) {
+      toast.error('Failed to load coupons');
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  const updateCampaignStatus = async (campaignId, status) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/campaigns/${campaignId}?status=${status}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        toast.success(`Campaign ${status.toLowerCase()}`);
+        fetchCampaigns();
+      }
+    } catch (error) {
+      toast.error('Failed to update campaign');
+    }
+  };
+
+  const filteredCampaigns = campaigns.filter(c =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.prefix.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-green-100 text-green-800';
+      case 'INACTIVE': return 'bg-gray-100 text-gray-800';
+      case 'COMPLETED': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Calculate stats
+  const totalRevenue = campaigns.reduce((acc, c) => acc + (c.sold_count * c.price), 0);
+  const totalSold = campaigns.reduce((acc, c) => acc + c.sold_count, 0);
+  const totalAvailable = campaigns.reduce((acc, c) => acc + c.available_count, 0);
+
+  return (
+    <Layout>
+      <div className="space-y-6" data-testid="campaigns-page">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
+              Campaign Management
+            </h1>
+            <p className="text-zinc-500 mt-1">Create and manage coupon campaigns</p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => { setLoading(true); fetchCampaigns(); }}>
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="create-campaign-btn">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Campaign
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="font-['Barlow_Condensed'] text-2xl">Create New Campaign</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Campaign Name</Label>
+                    <Input
+                      placeholder="e.g., Mumbai Diwali Sale"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      data-testid="campaign-name-input"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Price (₹)</Label>
+                      <Input
+                        type="number"
+                        placeholder="149"
+                        value={formData.price}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                        data-testid="campaign-price-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Total Coupons</Label>
+                      <Input
+                        type="number"
+                        placeholder="100"
+                        value={formData.total_count}
+                        onChange={(e) => setFormData({ ...formData, total_count: e.target.value })}
+                        data-testid="campaign-count-input"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Coupon Prefix</Label>
+                    <Input
+                      placeholder="e.g., MUM, SA, DLX"
+                      value={formData.prefix}
+                      onChange={(e) => setFormData({ ...formData, prefix: e.target.value.toUpperCase() })}
+                      maxLength={10}
+                      data-testid="campaign-prefix-input"
+                    />
+                    <p className="text-xs text-zinc-500">
+                      Coupons will be: {formData.prefix || 'XX'}001, {formData.prefix || 'XX'}002...
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleCreate} disabled={creating} data-testid="confirm-create-btn">
+                    {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                    Create Campaign
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Package className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Active Campaigns</p>
+                  <p className="text-2xl font-bold">{campaigns.filter(c => c.status === 'ACTIVE').length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Ticket className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Coupons Sold</p>
+                  <p className="text-2xl font-bold">{totalSold}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Hash className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Available</p>
+                  <p className="text-2xl font-bold">{totalAvailable}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <IndianRupee className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Total Revenue</p>
+                  <p className="text-2xl font-bold">₹{totalRevenue.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <Input
+            placeholder="Search campaigns..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="search-campaigns-input"
+          />
+        </div>
+
+        {/* Campaigns Table */}
+        <Card>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : filteredCampaigns.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <Package className="h-12 w-12 text-zinc-300 mb-4" />
+                <p className="text-zinc-500">No campaigns found</p>
+                <p className="text-sm text-zinc-400">Create your first campaign to get started</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Prefix</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Sold / Total</TableHead>
+                    <TableHead>Revenue</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCampaigns.map((campaign) => (
+                    <TableRow key={campaign.id} className="table-row-hover">
+                      <TableCell className="font-medium">{campaign.name}</TableCell>
+                      <TableCell>
+                        <code className="px-2 py-1 bg-zinc-100 rounded text-sm">{campaign.prefix}</code>
+                      </TableCell>
+                      <TableCell>₹{campaign.price}</TableCell>
+                      <TableCell>
+                        <span className="font-medium text-green-600">{campaign.sold_count}</span>
+                        <span className="text-zinc-400"> / {campaign.total_count}</span>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        ₹{(campaign.sold_count * campaign.price).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(campaign.status)}>{campaign.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => viewCampaignCoupons(campaign)}
+                            data-testid={`view-campaign-${campaign.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {campaign.status === 'ACTIVE' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => updateCampaignStatus(campaign.id, 'INACTIVE')}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => updateCampaignStatus(campaign.id, 'ACTIVE')}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* View Campaign Coupons Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-['Barlow_Condensed'] text-2xl">
+                {selectedCampaign?.name} - Coupons
+              </DialogTitle>
+            </DialogHeader>
+            {couponsLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Sold At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {campaignCoupons.map((coupon) => (
+                      <TableRow key={coupon.id}>
+                        <TableCell>
+                          <code className="px-2 py-1 bg-zinc-100 rounded text-sm font-mono">
+                            {coupon.code}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={
+                            coupon.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' :
+                            coupon.status === 'SOLD' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }>
+                            {coupon.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{coupon.customer_name || '-'}</TableCell>
+                        <TableCell className="text-sm text-zinc-500">
+                          {coupon.sold_at ? new Date(coupon.sold_at).toLocaleString() : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </Layout>
+  );
+}
