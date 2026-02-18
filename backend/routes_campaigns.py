@@ -569,3 +569,249 @@ async def sell_coupon(
         customer_name=data.customer_name.strip(),
         message=f"Coupon sold successfully! ₹{campaign['price']} added to your ledger."
     )
+
+
+
+# ========== NEW WORKER SALE FLOW (with Branch) ==========
+
+async def reverse_geocode(lat: float, lng: float) -> dict:
+    """Use OpenStreetMap Nominatim for reverse geocoding"""
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}&zoom=18&addressdetails=1"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={"User-Agent": "FieldFlowPro/3.0"}) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    address = data.get("address", {})
+                    return {
+                        "city": address.get("city") or address.get("town") or address.get("village") or address.get("county", ""),
+                        "state": address.get("state", ""),
+                        "area": address.get("suburb") or address.get("neighbourhood") or address.get("locality", ""),
+                        "full_address": data.get("display_name", "")
+                    }
+    except Exception as e:
+        pass
+    return {"city": "", "state": "", "area": "", "full_address": ""}
+
+
+@router.post("/worker-sale", response_model=WorkerSaleResponse)
+async def worker_sale_coupon(
+    data: WorkerSaleRequest,
+    request: Request,
+    current_user: dict = Depends(require_roles("worker"))
+):
+    """
+    NEW Worker Sale Flow:
+    1. Manual customer entry (name, phone)
+    2. Photo with OCR detection
+    3. Enter coupon code (validated)
+    4. Select branch (mandatory)
+    5. Submit
+    """
+    worker_id = current_user["sub"]
+    code = data.coupon_code.upper().strip()
+    
+    # ===== VALIDATION PHASE =====
+    
+    # GPS accuracy check
+    if data.gps_accuracy and data.gps_accuracy > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="GPS accuracy too low (>100m). Please move to an area with better signal."
+        )
+    
+    # Validate coupon code
+    coupon = await db.campaign_coupons.find_one({"code": code}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(status_code=404, detail=f"Coupon code '{code}' not found in system")
+    
+    if coupon["status"] == "SOLD":
+        raise HTTPException(status_code=400, detail=f"Coupon '{code}' has already been sold")
+    
+    if coupon["status"] == "ENCASHED":
+        raise HTTPException(status_code=400, detail=f"Coupon '{code}' has already been encashed")
+    
+    if coupon["status"] not in ["AVAILABLE"]:
+        raise HTTPException(status_code=400, detail=f"Coupon '{code}' is not available for sale")
+    
+    # Validate campaign
+    campaign = await db.campaigns.find_one({"id": coupon["campaign_id"]}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=400, detail="Campaign not found")
+    
+    if campaign["status"] != "ACTIVE":
+        raise HTTPException(status_code=400, detail=f"Campaign '{campaign['name']}' is not active")
+    
+    # Validate branch
+    branch = await db.branches.find_one({"id": data.branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=400, detail="Selected branch not found")
+    
+    # Validate phone
+    if not validate_phone(data.customer_phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+    
+    normalized_phone = normalize_phone(data.customer_phone)
+    encrypted_phone = encrypt_mobile(normalized_phone)
+    last4 = get_last4_digits(normalized_phone)
+    
+    # ===== LOCATION SPOOFING CHECK =====
+    last_location = await db.location_logs.find_one(
+        {"worker_id": worker_id},
+        {"_id": 0},
+        sort=[("timestamp", -1)]
+    )
+    
+    if last_location:
+        distance = calculate_haversine_distance(
+            last_location["latitude"], last_location["longitude"],
+            data.latitude, data.longitude
+        )
+        time_diff = (datetime.now(timezone.utc) - datetime.fromisoformat(last_location["timestamp"])).total_seconds() / 60
+        
+        if distance > 50 and time_diff < 10:
+            spoofing_alert = {
+                "id": str(uuid.uuid4()),
+                "worker_id": worker_id,
+                "previous_lat": last_location["latitude"],
+                "previous_lng": last_location["longitude"],
+                "current_lat": data.latitude,
+                "current_lng": data.longitude,
+                "distance_km": round(distance, 2),
+                "time_diff_minutes": round(time_diff, 2),
+                "alert_type": "IMPOSSIBLE_TRAVEL",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.location_spoofing_alerts.insert_one(spoofing_alert)
+            
+            raise HTTPException(
+                status_code=400,
+                detail=f"Location verification failed. Detected {round(distance, 1)}km movement in {round(time_diff, 1)} minutes."
+            )
+    
+    # ===== REVERSE GEOCODING =====
+    city = data.city
+    state = data.state
+    area_name = data.area_name
+    
+    if not city or not state:
+        geo_data = await reverse_geocode(data.latitude, data.longitude)
+        city = city or geo_data.get("city", "")
+        state = state or geo_data.get("state", "")
+        area_name = area_name or geo_data.get("area", "")
+    
+    # ===== SAVE PHOTO =====
+    photo_url = None
+    if data.image_base64:
+        try:
+            img_data = base64.b64decode(
+                data.image_base64.split(',')[-1] if ',' in data.image_base64 else data.image_base64
+            )
+            filename = f"sale_{uuid.uuid4()}.jpg"
+            filepath = UPLOAD_DIR / filename
+            with open(filepath, 'wb') as f:
+                f.write(img_data)
+            photo_url = f"/uploads/{filename}"
+        except Exception:
+            pass
+    
+    # ===== CHECK OCR MISMATCH =====
+    ocr_warning = None
+    if data.ocr_detected_name and data.ocr_detected_phone:
+        name_match = data.customer_name.lower().strip() == data.ocr_detected_name.lower().strip()
+        phone_match = data.customer_phone.replace(" ", "") == data.ocr_detected_phone.replace(" ", "")
+        
+        if not name_match or not phone_match:
+            mismatches = []
+            if not name_match:
+                mismatches.append(f"Name: Manual='{data.customer_name}', OCR='{data.ocr_detected_name}'")
+            if not phone_match:
+                mismatches.append(f"Phone: Manual='{data.customer_phone}', OCR='{data.ocr_detected_phone}'")
+            ocr_warning = "OCR mismatch detected: " + "; ".join(mismatches)
+    
+    # ===== UPDATE COUPON =====
+    now = datetime.now(timezone.utc)
+    
+    await db.campaign_coupons.update_one(
+        {"id": coupon["id"]},
+        {"$set": {
+            "status": "SOLD",
+            "sold_by_worker_id": worker_id,
+            "sold_at": now.isoformat(),
+            "customer_name": data.customer_name.strip(),
+            "customer_phone": encrypted_phone,
+            "customer_phone_last4": last4,
+            "photo_url": photo_url,
+            "latitude": data.latitude,
+            "longitude": data.longitude,
+            "city": city,
+            "state": state,
+            "area_name": area_name,
+            "branch_id": data.branch_id,
+            "ocr_confidence": data.ocr_confidence,
+            "ocr_detected_name": data.ocr_detected_name,
+            "ocr_detected_phone": data.ocr_detected_phone
+        }}
+    )
+    
+    # Update campaign sold count
+    await db.campaigns.update_one(
+        {"id": campaign["id"]},
+        {"$inc": {"sold_count": 1}}
+    )
+    
+    # ===== UPDATE WORKER LEDGER =====
+    await update_worker_ledger(
+        worker_id=worker_id,
+        transaction_type="SALE",
+        amount=campaign["price"],
+        description=f"Sale: {code} - {campaign['name']} @ {branch['name']}",
+        reference_id=coupon["id"]
+    )
+    
+    # Log location
+    location_log = {
+        "id": str(uuid.uuid4()),
+        "worker_id": worker_id,
+        "latitude": data.latitude,
+        "longitude": data.longitude,
+        "accuracy": data.gps_accuracy,
+        "city": city,
+        "state": state,
+        "area_name": area_name,
+        "timestamp": now.isoformat()
+    }
+    await db.location_logs.insert_one(location_log)
+    
+    # Audit log
+    await create_audit_log(
+        user_id=worker_id,
+        user_role=current_user["role"],
+        action="COUPON_SOLD",
+        entity="campaign_coupon",
+        entity_id=coupon["id"],
+        metadata={
+            "code": code,
+            "campaign_name": campaign["name"],
+            "campaign_price": campaign["price"],
+            "customer_name": data.customer_name,
+            "branch_id": data.branch_id,
+            "branch_name": branch["name"],
+            "city": city,
+            "state": state,
+            "ocr_mismatch": ocr_warning is not None
+        },
+        request=request
+    )
+    
+    return WorkerSaleResponse(
+        success=True,
+        coupon_id=coupon["id"],
+        coupon_code=code,
+        campaign_name=campaign["name"],
+        campaign_price=campaign["price"],
+        customer_name=data.customer_name.strip(),
+        branch_name=branch["name"],
+        message=f"Coupon sold successfully! ₹{campaign['price']} added to your ledger.",
+        ocr_mismatch_warning=ocr_warning
+    )
