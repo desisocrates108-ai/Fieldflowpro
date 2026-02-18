@@ -206,7 +206,7 @@ function AppRoutes() {
         path="/worker/sell"
         element={
           <ProtectedRoute allowedRoles={['worker']}>
-            <SellCouponPage />
+            <SaleCouponPage />
           </ProtectedRoute>
         }
       />
