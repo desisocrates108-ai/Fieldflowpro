@@ -253,36 +253,12 @@ function AppRoutes() {
         }
       />
 
-      {/* CRE Routes - Same dashboard as Admin but limited permissions */}
+      {/* CRE Routes - Simplified Dashboard (No financials) */}
       <Route
         path="/cre"
         element={
           <ProtectedRoute allowedRoles={['cre']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/cre/coupons"
-        element={
-          <ProtectedRoute allowedRoles={['cre']}>
-            <AdminCouponsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/cre/bookings"
-        element={
-          <ProtectedRoute allowedRoles={['cre']}>
-            <AdminBookingsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/cre/audit-logs"
-        element={
-          <ProtectedRoute allowedRoles={['cre']}>
-            <AdminDashboard />
+            <CREDashboard />
           </ProtectedRoute>
         }
       />
