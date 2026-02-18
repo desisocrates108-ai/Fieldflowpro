@@ -16,7 +16,9 @@ import {
   Map,
   FileText,
   Settings,
-  User
+  User,
+  Package,
+  Receipt
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
