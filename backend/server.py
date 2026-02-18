@@ -43,6 +43,7 @@ import routes_campaigns
 import routes_areas
 import routes_ledger
 import routes_admin
+import routes_cre_branch
 import background_tasks
 
 ROOT_DIR = Path(__file__).parent
@@ -58,7 +59,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app
-app = FastAPI(title="FieldFlow Pro API", version="3.0.0")
+app = FastAPI(title="FieldFlow Pro API", version="3.1.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
