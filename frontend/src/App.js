@@ -155,6 +155,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/campaigns"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <CampaignsPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Worker Routes */}
       <Route
