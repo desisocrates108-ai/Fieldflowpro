@@ -1,179 +1,255 @@
 # FieldFlow Pro - Product Requirements Document
 
-## Original Problem Statement
-Build a production-ready, offline-first Progressive Web App (PWA) for a field service company that combines workforce management, GPS attendance tracking, coupon issuance, customer redemption, booking lifecycle management, branch assignment, and service completion tracking.
+## Overview
+FieldFlow Pro is a production-ready, pan-India field revenue intelligence system designed for field service companies. The application supports multiple user roles (Admin, Worker, Branch Manager, CRE) with comprehensive coupon management, sales tracking, expense handling, and worker management capabilities.
 
-## User Personas
-
-### 1. Worker (Field Service Technician)
-- Uses mobile phone in field
-- Needs GPS attendance tracking
-- Issues coupons to customers
-- Tracks assigned tasks
-- Requires offline capability
-
-### 2. Admin (Operations Manager)
-- Monitors workforce on desktop/tablet
-- Assigns branches to bookings
-- Views analytics dashboard
-- Manages workers and branches
-
-### 3. Branch Manager
-- Views assigned bookings
-- Updates service status
-- Dispatches service team
-- Confirms completion
-
-### 4. Customer
-- Redeems coupon via link/code
-- Receives booking confirmation
-- Gets service updates
-
-## Core Requirements (Static)
-
-### Authentication
-- JWT-based authentication with refresh tokens
-- Role-based access control (RBAC)
-- Secure password hashing (bcrypt)
-
-### GPS Attendance
-- GPS punch-in/out with location capture
-- Prevent double punch per day
-- Accuracy indicators
-
-### Coupon Management
-- Format: SVL-AREAID-WORKERID-RANDOM6
-- Unique constraint enforcement
-- Status lifecycle: ISSUED → REDEEMED → UTILIZED
-
-### Booking Lifecycle
-- Status flow: PENDING → ASSIGNED → DISPATCHED → IN_PROGRESS → COMPLETED
-- Branch assignment
-- Service tracking
-
-## What's Been Implemented (Phase 1 MVP)
-
-### Date: February 17, 2026
-
-#### Backend (FastAPI + MongoDB)
-- [x] User Authentication (Register/Login/Refresh/Me)
-- [x] GPS Attendance (Punch-In/Punch-Out)
-- [x] Coupon Creation with SVL-XXX-XXX-XXXXXX format
-- [x] OTP Request & Verification (Mock for MVP)
-- [x] Booking Creation after Redemption
-- [x] Branch Management (CRUD)
-- [x] Branch Assignment to Bookings
-- [x] Booking Status Updates
-- [x] Dashboard Statistics API
-- [x] Location Logging
-- [x] File Upload (Local Storage)
-- [x] Task Management
-
-#### Frontend (React + Tailwind + Shadcn)
-- [x] Login & Registration Pages
-- [x] Admin Dashboard with Stats
-- [x] Worker Dashboard with Quick Actions
-- [x] Attendance Page (Punch In/Out)
-- [x] Issue Coupon Page
-- [x] My Coupons List
-- [x] Tasks List
-- [x] Admin: Workers Management
-- [x] Admin: Coupons Management
-- [x] Admin: Bookings Management
-- [x] Admin: Branches Management
-- [x] Admin: Live Map (Placeholder)
-- [x] Branch: Bookings Management
-- [x] Customer: Coupon Redemption Flow
-
-## Prioritized Backlog (P0/P1/P2)
-
-### P0 (Critical - Not Yet Implemented)
-- Real-time location tracking with WebSockets
-- Offline sync with IndexedDB
-- Service Worker for PWA
-
-### P1 (High Priority)
-- Mapbox integration for live map
-- Photo capture in coupon issuance
-- Push notifications
-- Geofencing alerts
-
-### P2 (Medium Priority)
-- Analytics charts and graphs
-- Export to Excel/CSV
-- Performance scoring
-- Audit logs UI
-- Email/SMS OTP integration
-
-### P3 (Nice to Have)
-- Fraud detection
-- Heatmaps
-- Route optimization
-- Customer feedback system
-
-## Tech Stack
-- Frontend: React + Tailwind CSS + Shadcn UI
-- Backend: FastAPI + Motor (MongoDB)
-- Database: MongoDB
-- Auth: JWT + bcrypt
-- Maps: Mapbox (placeholder ready)
-- Storage: Local file storage (MVP)
-- OTP: Mock (MVP)
-
-## Next Tasks
-1. Integrate Mapbox for live worker tracking
-2. Implement IndexedDB offline sync
-3. Add Service Worker for PWA features
-4. Connect real SMS/Email for OTP
-5. Add photo capture functionality
-6. Implement real-time WebSocket updates
+## Current Version: 3.0.0
+**Last Updated**: February 18, 2026
 
 ---
 
-## Update: February 17, 2026 (Phase 1.1 - Security Enhancement)
+## Core Architecture
 
-### New Features Implemented:
+### Tech Stack
+- **Backend**: FastAPI + MongoDB (Motor async driver)
+- **Frontend**: React + Tailwind CSS + Shadcn UI
+- **Authentication**: JWT-based with RBAC (Role-Based Access Control)
+- **Real-time**: WebSockets for CRE notifications
+- **OCR**: Tesseract.js (client-side)
+- **Camera**: react-webcam
 
-#### 1. Enhanced RBAC System
-- **4 Roles**: admin, cre (Customer Relations Executive), worker, branch
-- Strict permission boundaries enforced at API level
-- Role-based data visibility
+### User Roles
+1. **Admin**: Full system access, campaign management, worker control, analytics
+2. **CRE (Customer Relations Executive)**: Coupon verification, limited analytics
+3. **Worker**: Field operations, coupon sales, expense submission
+4. **Branch**: Booking management with data masking
 
-#### 2. Data Masking for Branch Role
-- Branch users only see last 4 digits of mobile numbers
-- Format: `XXXXXX3210`
-- Cannot access full customer phone data
+---
 
-#### 3. Mobile Number Encryption
-- All phone numbers encrypted at rest (basic encryption for MVP)
-- Decrypted only when serving to authorized roles
+## Implemented Features (v3.0.0)
 
-#### 4. Audit Logging
-- All critical actions logged to audit_logs collection
-- Tracks: LOGIN, COUPON_CREATED, BOOKING_UPDATED, SEARCH_QUERY, etc.
-- Includes user_id, role, IP address, timestamp
+### 1. Campaign Management (Admin)
+- ✅ Create campaigns with name, price, total count, prefix
+- ✅ Auto-generate serial coupon codes (e.g., MUM001-MUM050)
+- ✅ Dynamic digit padding based on total count
+- ✅ View sold/available counts per campaign
+- ✅ Activate/Deactivate campaigns
+- ✅ Campaign deletion (if no sales)
 
-#### 5. Role Permissions Matrix
+### 2. New Coupon Sale Flow (Worker)
+- ✅ 4-step process: Code Entry → Photo/Details → Confirm → Success
+- ✅ Manual coupon code entry with validation
+- ✅ Shows campaign name and price before sale
+- ✅ Photo capture with OCR auto-extraction
+- ✅ GPS location capture with accuracy check
+- ✅ Area selection (optional)
+- ✅ Rejection if GPS accuracy >100m
 
-| Permission | Admin | CRE | Worker | Branch |
-|------------|-------|-----|--------|--------|
-| View full mobile | ✅ | ✅ | Own only | ❌ |
-| Manage users | ✅ | ❌ | ❌ | ❌ |
-| View all coupons | ✅ | ✅ | Own only | Assigned |
-| Export data | ✅ | ✅ | ❌ | ❌ |
-| View audit logs | ✅ | ✅ | ❌ | ❌ |
-| Assign branches | ✅ | ❌ | ❌ | ❌ |
-| Dashboard stats | ✅ | ✅ | ❌ | ❌ |
+### 3. Worker Ledger System
+- ✅ Auto-updates on each sale
+- ✅ Tracks: total_coupons_sold, total_revenue, total_advances, total_expenses, net_payable
+- ✅ Transaction history with type (SALE/ADVANCE/EXPENSE)
+- ✅ Admin can view all worker ledgers
+- ✅ Admin can add advance payments
 
-### Security Improvements:
-- ✅ Phone validation and normalization
-- ✅ Customer name validation (letters only)
-- ✅ Audit trail for all sensitive operations
-- ✅ Role middleware prevents unauthorized access
+### 4. Expense Module
+- ✅ Worker expense submission
+- ✅ Expense types: Travel, Food, Equipment, Communication, Accommodation, Other
+- ✅ Bill photo mandatory for amounts >₹100
+- ✅ GPS location captured
+- ✅ Admin approval/rejection workflow
+- ✅ Auto-deduct from net payable on approval
 
-### Next Tasks (Phase 2):
-1. Upgrade to AES-256 encryption for mobile numbers
-2. Add rate limiting on API endpoints
-3. Implement search indexing for performance
-4. Add data export functionality (Excel/CSV) for Admin/CRE
-5. Vite migration for frontend
+### 5. Admin Worker Control
+- ✅ Create new workers
+- ✅ Disable/Enable worker accounts
+- ✅ Reset worker passwords
+- ✅ Delete workers (if no sales)
+- ✅ Add advance payments
+- ✅ View comprehensive worker stats
+
+### 6. Area Management & Analytics
+- ✅ Create areas with city, state, coordinates
+- ✅ Sales analytics by area, campaign, worker
+- ✅ Revenue tracking per area
+- ✅ Daily trend data
+
+### 7. Inactivity Tracking
+- ✅ Background task monitors worker activity
+- ✅ Alert after 3 hours of punch-in with no sales
+- ✅ Auto-capture last known location
+- ✅ Admin can view/resolve/dismiss alerts
+
+### 8. Security Features
+- ✅ Unique coupon codes (no reuse)
+- ✅ GPS accuracy validation (reject >100m)
+- ✅ Location spoofing detection (>50km in <10 mins)
+- ✅ Server-side financial calculations
+- ✅ Phone number encryption at rest
+- ✅ Data masking based on role
+- ✅ Comprehensive audit logging
+
+---
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/login`
+- `POST /api/auth/register`
+
+### Campaigns
+- `POST /api/campaigns` - Create campaign
+- `GET /api/campaigns` - List campaigns
+- `GET /api/campaigns/{id}` - Get campaign details
+- `GET /api/campaigns/{id}/coupons` - Get campaign coupons
+- `PATCH /api/campaigns/{id}` - Update campaign
+- `DELETE /api/campaigns/{id}` - Delete campaign
+- `POST /api/campaigns/validate-code` - Validate coupon code
+- `POST /api/campaigns/sell` - Complete coupon sale
+
+### Areas
+- `POST /api/areas` - Create area
+- `GET /api/areas` - List areas
+- `GET /api/areas/states` - Get unique states
+- `GET /api/areas/cities` - Get cities by state
+- `GET /api/areas/analytics/summary` - Sales analytics
+
+### Ledger & Expenses
+- `GET /api/workers/{id}/ledger` - Get worker ledger
+- `GET /api/workers/{id}/transactions` - Transaction history
+- `POST /api/workers/{id}/advance` - Add advance (Admin)
+- `GET /api/ledgers/all` - All worker ledgers (Admin)
+- `POST /api/expenses` - Submit expense (Worker)
+- `GET /api/expenses` - List expenses
+- `PATCH /api/expenses/{id}/approve` - Approve/Reject (Admin)
+
+### Admin Worker Control
+- `POST /api/admin/workers` - Create worker
+- `PATCH /api/admin/workers/{id}` - Update worker
+- `POST /api/admin/workers/{id}/disable` - Disable worker
+- `POST /api/admin/workers/{id}/enable` - Enable worker
+- `DELETE /api/admin/workers/{id}` - Delete worker
+- `POST /api/admin/workers/{id}/reset-password` - Reset password
+- `GET /api/admin/dashboard/stats` - Dashboard statistics
+- `GET /api/admin/inactivity-alerts` - Inactivity alerts
+- `GET /api/admin/spoofing-alerts` - Location spoofing alerts
+
+---
+
+## Database Schema
+
+### campaigns
+```json
+{
+  "id": "uuid",
+  "name": "string",
+  "price": "float",
+  "total_count": "int",
+  "prefix": "string",
+  "digit_padding": "int",
+  "status": "ACTIVE|INACTIVE|COMPLETED",
+  "sold_count": "int",
+  "created_by": "uuid",
+  "created_at": "datetime"
+}
+```
+
+### campaign_coupons
+```json
+{
+  "id": "uuid",
+  "campaign_id": "uuid",
+  "code": "string",
+  "serial_number": "int",
+  "status": "AVAILABLE|SOLD|CANCELLED",
+  "sold_by_worker_id": "uuid",
+  "sold_at": "datetime",
+  "customer_name": "string",
+  "customer_phone": "encrypted",
+  "photo_url": "string",
+  "latitude": "float",
+  "longitude": "float",
+  "area_id": "uuid"
+}
+```
+
+### worker_ledgers
+```json
+{
+  "id": "uuid",
+  "worker_id": "uuid",
+  "total_coupons_sold": "int",
+  "total_revenue": "float",
+  "total_advances": "float",
+  "total_expenses": "float",
+  "net_payable": "float",
+  "last_updated": "datetime"
+}
+```
+
+### expenses
+```json
+{
+  "id": "uuid",
+  "worker_id": "uuid",
+  "type": "string",
+  "amount": "float",
+  "description": "string",
+  "latitude": "float",
+  "longitude": "float",
+  "bill_photo_url": "string",
+  "status": "PENDING|APPROVED|REJECTED",
+  "approved_by": "uuid",
+  "approved_at": "datetime"
+}
+```
+
+---
+
+## Test Credentials
+- **Admin**: testadmin@fieldflow.com / admin123
+- **Worker**: testworker@fieldflow.com / worker123
+- **Branch**: testbranch@fieldflow.com / branch123
+- **CRE**: testcre@fieldflow.com / cre123
+
+---
+
+## Known Limitations / Future Work
+
+### Mocked APIs
+- OTP verification is mocked (returns mock OTP in response)
+
+### Deferred Features (P2+)
+- Live Map with Mapbox (requires API key)
+- PostgreSQL migration
+- AWS S3 image storage
+- Real SMS integration (Twilio)
+- Offline-first PWA with IndexedDB
+- React + Vite migration
+- Advanced fraud detection
+- Worker performance scoring
+
+---
+
+## Changelog
+
+### v3.0.0 (February 18, 2026)
+- **Major**: Replaced auto coupon generation with campaign-based system
+- **Added**: Campaign Management with prefix-based coupon codes
+- **Added**: New 4-step coupon sale flow with manual code entry
+- **Added**: Worker Ledger System (sales, advances, expenses, net payable)
+- **Added**: Expense Module with photo requirement validation
+- **Added**: Inactivity Tracking with 3-hour alerts
+- **Added**: Location Spoofing Detection
+- **Added**: Admin Worker Control (create/disable/reset/delete/advance)
+- **Added**: Area Management with analytics
+- **Enhanced**: Admin Dashboard with comprehensive stats
+
+### v2.1.0 (February 17, 2026)
+- Added RBAC enhancement with data masking
+- Added audit logging
+- Started OCR-based coupon issuance
+
+### v1.0.0 (Initial)
+- Basic authentication
+- Initial coupon and booking flow
