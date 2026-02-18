@@ -10,11 +10,13 @@ import math
 import base64
 import uuid
 from pathlib import Path
+import aiohttp
 
 from models import (
     CampaignCreate, Campaign, CampaignResponse, CampaignCoupon, CampaignCouponResponse,
     CouponValidateRequest, CouponValidateResponse,
     CouponSaleRequest, CouponSaleResponse,
+    WorkerSaleRequest, WorkerSaleResponse,
     AuditAction
 )
 from auth import get_current_user, require_roles, get_last4_digits
