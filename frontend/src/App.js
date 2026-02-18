@@ -168,6 +168,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/ledger"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminLedgerPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Worker Routes */}
       <Route
