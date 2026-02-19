@@ -52,6 +52,18 @@ def generate_coupon_code(prefix: str, serial: int, digit_padding: int) -> str:
     return f"{prefix}{str(serial).zfill(digit_padding)}"
 
 
+def parse_coupon_code(code: str) -> tuple:
+    """
+    Parse coupon code into prefix and number.
+    Returns (prefix, number) or (None, None) if invalid.
+    Example: "UT100" -> ("UT", 100)
+    """
+    match = re.match(r'^([A-Za-z]+)(\d+)$', code.strip())
+    if match:
+        return match.group(1).upper(), int(match.group(2))
+    return None, None
+
+
 # ========== Campaign CRUD ==========
 
 @router.post("", response_model=CampaignResponse)
@@ -61,40 +73,93 @@ async def create_campaign(
     current_user: dict = Depends(require_roles("admin"))
 ):
     """
-    Create a new campaign and auto-generate all coupon codes.
-    Example: prefix="SA", total_count=50 generates SA001-SA050
+    Create a new campaign with start-end coupon code range.
+    Example: start_code="UT100", end_code="UT400" generates UT100-UT399 (300 coupons)
     """
-    if data.total_count <= 0:
+    # Parse start and end codes
+    start_prefix, start_num = parse_coupon_code(data.start_code)
+    end_prefix, end_num = parse_coupon_code(data.end_code)
+    
+    # Validate parsing
+    if start_prefix is None or end_prefix is None:
+        raise HTTPException(status_code=400, detail="Invalid coupon code format. Use format like 'UT100'")
+    
+    # Validate same prefix
+    if start_prefix != end_prefix:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Prefix mismatch: start='{start_prefix}' vs end='{end_prefix}'. Both codes must have the same prefix."
+        )
+    
+    # Validate end > start
+    if end_num <= start_num:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"End number ({end_num}) must be greater than start number ({start_num})"
+        )
+    
+    prefix = start_prefix
+    total_count = end_num - start_num  # UT100-UT400 = 300 coupons (100,101,...,399)
+    
+    if total_count <= 0:
         raise HTTPException(status_code=400, detail="Total count must be positive")
     
-    if not data.prefix or len(data.prefix) > 10:
-        raise HTTPException(status_code=400, detail="Prefix must be 1-10 characters")
+    if total_count > 10000:
+        raise HTTPException(status_code=400, detail="Maximum 10,000 coupons per campaign allowed")
     
-    # Check for duplicate prefix
-    existing = await db.campaigns.find_one({"prefix": data.prefix.upper(), "status": {"$ne": "COMPLETED"}})
+    # Check for duplicate prefix in active campaigns
+    existing = await db.campaigns.find_one({"prefix": prefix, "status": {"$ne": "COMPLETED"}})
     if existing:
-        raise HTTPException(status_code=400, detail=f"Campaign with prefix '{data.prefix}' already exists")
+        raise HTTPException(status_code=400, detail=f"Campaign with prefix '{prefix}' already exists")
     
-    digit_padding = calculate_digit_padding(data.total_count)
+    # Check for overlapping coupon codes
+    first_code = f"{prefix}{str(start_num).zfill(len(str(end_num)))}"
+    last_code = f"{prefix}{str(end_num - 1).zfill(len(str(end_num)))}"
+    
+    # Check if any code in range already exists
+    overlap_check = await db.campaign_coupons.find_one({
+        "code": {"$regex": f"^{prefix}\\d+$"},
+        "$expr": {
+            "$and": [
+                {"$gte": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, start_num]},
+                {"$lt": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, end_num]}
+            ]
+        }
+    })
+    
+    # Simpler overlap check - check first and last codes
+    existing_first = await db.campaign_coupons.find_one({"code": first_code})
+    existing_last = await db.campaign_coupons.find_one({"code": last_code})
+    if existing_first or existing_last:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Code range overlaps with existing campaign. '{first_code}' or '{last_code}' already exists."
+        )
+    
+    digit_padding = len(str(end_num - 1))  # Use the max number's length
     
     # Create campaign
     campaign = Campaign(
         name=data.name,
         price=data.price,
-        total_count=data.total_count,
-        prefix=data.prefix.upper(),
+        total_count=total_count,
+        prefix=prefix,
         digit_padding=digit_padding,
         created_by=current_user["sub"]
     )
     
     campaign_doc = campaign.model_dump()
     campaign_doc["created_at"] = campaign_doc["created_at"].isoformat()
+    campaign_doc["start_code"] = data.start_code.upper()
+    campaign_doc["end_code"] = data.end_code.upper()
+    campaign_doc["start_number"] = start_num
+    campaign_doc["end_number"] = end_num
     await db.campaigns.insert_one(campaign_doc)
     
-    # Generate all coupon codes
+    # Generate all coupon codes (start to end-1, since total = end - start)
     coupon_docs = []
-    for serial in range(1, data.total_count + 1):
-        code = generate_coupon_code(campaign.prefix, serial, digit_padding)
+    for serial in range(start_num, end_num):  # end_num is exclusive
+        code = generate_coupon_code(prefix, serial, digit_padding)
         coupon = CampaignCoupon(
             campaign_id=campaign.id,
             code=code,
@@ -117,8 +182,10 @@ async def create_campaign(
         entity_id=campaign.id,
         metadata={
             "name": data.name,
-            "prefix": data.prefix.upper(),
-            "total_count": data.total_count,
+            "prefix": prefix,
+            "start_code": data.start_code.upper(),
+            "end_code": data.end_code.upper(),
+            "total_count": total_count,
             "price": data.price
         },
         request=request
@@ -133,7 +200,7 @@ async def create_campaign(
         digit_padding=campaign.digit_padding,
         status=campaign.status,
         sold_count=0,
-        available_count=data.total_count,
+        available_count=total_count,
         created_by=campaign.created_by,
         created_at=campaign.created_at
     )
