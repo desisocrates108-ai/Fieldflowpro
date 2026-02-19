@@ -7,10 +7,13 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
-import { Loader2, Building2, Plus, MapPin, Phone } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
+import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Loader2, Building2, Plus, MapPin, Phone, Trash2, Power, AlertTriangle, CheckCircle } from 'lucide-react';
 import { formatDateTime } from '../../lib/utils';
 import { toast } from 'sonner';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState([]);
@@ -24,6 +27,12 @@ export default function BranchesPage() {
     contact_phone: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  
+  // Delete/Deactivate dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState(null);
 
   const fetchBranches = async () => {
     try {
@@ -87,6 +96,64 @@ export default function BranchesPage() {
       );
     } else {
       toast.error('Geolocation not supported');
+    }
+  };
+
+  const openDeleteDialog = (branch) => {
+    setBranchToDelete(branch);
+    setDeleteResult(null);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteBranch = async () => {
+    if (!branchToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/branches/${branchToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        setDeleteResult(result);
+        toast.success(result.message);
+        fetchBranches();
+        
+        // Close dialog after short delay if successful
+        setTimeout(() => {
+          setDeleteDialogOpen(false);
+          setBranchToDelete(null);
+        }, 1500);
+      } else {
+        toast.error(result.detail || 'Failed to remove branch');
+      }
+    } catch (error) {
+      toast.error('Failed to remove branch');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleActivateBranch = async (branchId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/branches/${branchId}/activate`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast.success('Branch activated');
+        fetchBranches();
+      } else {
+        toast.error('Failed to activate branch');
+      }
+    } catch (error) {
+      toast.error('Failed to activate branch');
     }
   };
 
@@ -214,6 +281,7 @@ export default function BranchesPage() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -256,6 +324,30 @@ export default function BranchesPage() {
                       <TableCell className="text-zinc-600">
                         {formatDateTime(branch.created_at)}
                       </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {!branch.is_active && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 text-green-600 border-green-300 hover:bg-green-50"
+                              onClick={() => handleActivateBranch(branch.id)}
+                              data-testid={`activate-branch-${branch.id}`}
+                            >
+                              <Power className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 text-red-600 border-red-300 hover:bg-red-50"
+                            onClick={() => openDeleteDialog(branch)}
+                            data-testid={`delete-branch-${branch.id}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -263,6 +355,74 @@ export default function BranchesPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Delete/Deactivate Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Remove Branch
+              </DialogTitle>
+            </DialogHeader>
+            
+            {deleteResult ? (
+              <Alert className={deleteResult.action === 'DELETED' ? 'border-green-500 bg-green-50' : 'border-amber-500 bg-amber-50'}>
+                <AlertDescription className="flex items-center gap-2">
+                  {deleteResult.action === 'DELETED' ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-green-800">{deleteResult.message}</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <div className="text-amber-800">
+                        <p className="font-medium">{deleteResult.message}</p>
+                        {deleteResult.dependencies && (
+                          <ul className="mt-2 text-sm">
+                            <li>Workers assigned: {deleteResult.dependencies.assigned_workers}</li>
+                            <li>Coupons sold: {deleteResult.dependencies.sold_coupons}</li>
+                            <li>Encashments: {deleteResult.dependencies.encashments}</li>
+                          </ul>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-4 py-4">
+                <p className="text-zinc-600">
+                  Are you sure you want to remove <strong>{branchToDelete?.name}</strong>?
+                </p>
+                <Alert className="border-amber-500 bg-amber-50">
+                  <AlertDescription className="text-amber-800 text-sm">
+                    <strong>Note:</strong> If this branch has assigned workers, sold coupons, or encashment history, 
+                    it will be <strong>deactivated</strong> instead of permanently deleted.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+            
+            {!deleteResult && (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteBranch}
+                  disabled={deleting}
+                  data-testid="confirm-delete-branch-btn"
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Remove Branch
+                </Button>
+              </DialogFooter>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
