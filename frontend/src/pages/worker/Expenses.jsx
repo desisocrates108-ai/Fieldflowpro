@@ -414,6 +414,11 @@ export default function ExpensesPage() {
                         <p className="text-xs text-zinc-400">
                           {new Date(expense.created_at).toLocaleString()}
                         </p>
+                        {expense.status === 'REJECTED' && expense.rejection_reason && (
+                          <p className="text-xs text-red-600 mt-1 italic">
+                            Rejection reason: {expense.rejection_reason}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
