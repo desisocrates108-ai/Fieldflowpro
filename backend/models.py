@@ -459,6 +459,13 @@ class WSMessage(BaseModel):
 class CampaignCreate(BaseModel):
     name: str
     price: float
+    start_code: str  # e.g., "UT100"
+    end_code: str    # e.g., "UT400"
+
+class CampaignCreateLegacy(BaseModel):
+    """Legacy format - still supported"""
+    name: str
+    price: float
     total_count: int
     prefix: str  # e.g., "SA", "MUM01"
 
