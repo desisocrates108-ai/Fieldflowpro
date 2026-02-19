@@ -1250,6 +1250,110 @@ async def get_nearest_branch(latitude: float, longitude: float, current_user: di
     nearest = find_nearest_branch(branches, latitude, longitude)
     return nearest
 
+
+@api_router.delete("/branches/{branch_id}")
+async def delete_branch(
+    branch_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    Delete or deactivate a branch.
+    - If branch has dependencies (workers, coupons, encashments), only deactivate
+    - If no dependencies, allow permanent delete
+    """
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    # Check dependencies
+    assigned_workers = await db.users.count_documents({"branch_id": branch_id})
+    sold_coupons = await db.campaign_coupons.count_documents({"branch_id": branch_id})
+    encashments = await db.encashments.count_documents({"branch_id": branch_id})
+    
+    has_dependencies = assigned_workers > 0 or sold_coupons > 0 or encashments > 0
+    
+    if has_dependencies:
+        # Soft delete - deactivate only
+        await db.branches.update_one(
+            {"id": branch_id},
+            {"$set": {"is_active": False}}
+        )
+        
+        await create_audit_log(
+            user_id=current_user["sub"],
+            user_role=current_user["role"],
+            action="USER_UPDATED",
+            entity="branch",
+            entity_id=branch_id,
+            metadata={
+                "action": "deactivated",
+                "reason": "has_dependencies",
+                "assigned_workers": assigned_workers,
+                "sold_coupons": sold_coupons,
+                "encashments": encashments
+            },
+            request=request
+        )
+        
+        return {
+            "message": "Branch deactivated (has dependencies)",
+            "action": "DEACTIVATED",
+            "dependencies": {
+                "assigned_workers": assigned_workers,
+                "sold_coupons": sold_coupons,
+                "encashments": encashments
+            }
+        }
+    else:
+        # Hard delete - no dependencies
+        await db.branches.delete_one({"id": branch_id})
+        
+        await create_audit_log(
+            user_id=current_user["sub"],
+            user_role=current_user["role"],
+            action="USER_DELETED",
+            entity="branch",
+            entity_id=branch_id,
+            metadata={"action": "deleted", "name": branch["name"]},
+            request=request
+        )
+        
+        return {
+            "message": "Branch deleted permanently",
+            "action": "DELETED"
+        }
+
+
+@api_router.patch("/branches/{branch_id}/activate")
+async def activate_branch(
+    branch_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Re-activate a deactivated branch"""
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    await db.branches.update_one(
+        {"id": branch_id},
+        {"$set": {"is_active": True}}
+    )
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_UPDATED",
+        entity="branch",
+        entity_id=branch_id,
+        metadata={"action": "activated"},
+        request=request
+    )
+    
+    return {"message": "Branch activated"}
+
+
 # ========== Task Routes ==========
 @api_router.post("/tasks", response_model=TaskResponse)
 async def create_task(data: TaskCreate, current_user: dict = Depends(require_roles("admin"))):
