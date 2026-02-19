@@ -9,11 +9,12 @@ from typing import List, Optional
 import math
 import base64
 import uuid
+import re
 from pathlib import Path
 import aiohttp
 
 from models import (
-    CampaignCreate, Campaign, CampaignResponse, CampaignCoupon, CampaignCouponResponse,
+    CampaignCreate, CampaignCreateLegacy, Campaign, CampaignResponse, CampaignCoupon, CampaignCouponResponse,
     CouponValidateRequest, CouponValidateResponse,
     CouponSaleRequest, CouponSaleResponse,
     WorkerSaleRequest, WorkerSaleResponse,
