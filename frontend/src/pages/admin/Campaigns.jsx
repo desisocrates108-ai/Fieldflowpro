@@ -7,11 +7,11 @@ import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { 
   Plus, Ticket, Package, IndianRupee, Hash, 
-  Loader2, Search, MoreVertical, Eye, Trash2, 
-  RefreshCcw, CheckCircle, XCircle
+  Loader2, Search, Eye, 
+  RefreshCcw, CheckCircle, XCircle, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,13 +28,81 @@ export default function CampaignsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Form state
+  // Form state - new range-based logic
   const [formData, setFormData] = useState({
     name: '',
     price: '',
-    total_count: '',
+    start_code: '',
+    end_code: ''
+  });
+
+  // Validation state
+  const [validation, setValidation] = useState({
+    valid: false,
+    message: '',
+    totalCoupons: 0,
     prefix: ''
   });
+
+  const parseCode = (code) => {
+    const match = code.trim().toUpperCase().match(/^([A-Z]+)(\d+)$/);
+    if (match) {
+      return { prefix: match[1], number: parseInt(match[2]) };
+    }
+    return null;
+  };
+
+  // Validate coupon range whenever start/end codes change
+  useEffect(() => {
+    const startCode = formData.start_code.trim().toUpperCase();
+    const endCode = formData.end_code.trim().toUpperCase();
+
+    if (!startCode || !endCode) {
+      setValidation({ valid: false, message: '', totalCoupons: 0, prefix: '' });
+      return;
+    }
+
+    const startParsed = parseCode(startCode);
+    const endParsed = parseCode(endCode);
+
+    if (!startParsed) {
+      setValidation({ valid: false, message: 'Invalid start code format. Use format like "UT100"', totalCoupons: 0, prefix: '' });
+      return;
+    }
+
+    if (!endParsed) {
+      setValidation({ valid: false, message: 'Invalid end code format. Use format like "UT400"', totalCoupons: 0, prefix: '' });
+      return;
+    }
+
+    if (startParsed.prefix !== endParsed.prefix) {
+      setValidation({ 
+        valid: false, 
+        message: `Prefix mismatch: "${startParsed.prefix}" vs "${endParsed.prefix}". Both codes must have the same prefix.`, 
+        totalCoupons: 0, 
+        prefix: '' 
+      });
+      return;
+    }
+
+    if (endParsed.number <= startParsed.number) {
+      setValidation({ 
+        valid: false, 
+        message: `End number (${endParsed.number}) must be greater than start number (${startParsed.number})`, 
+        totalCoupons: 0, 
+        prefix: startParsed.prefix 
+      });
+      return;
+    }
+
+    const total = endParsed.number - startParsed.number;
+    setValidation({ 
+      valid: true, 
+      message: `Will create ${total} coupons: ${startCode} to ${startParsed.prefix}${endParsed.number - 1}`, 
+      totalCoupons: total,
+      prefix: startParsed.prefix
+    });
+  }, [formData.start_code, formData.end_code]);
 
   const fetchCampaigns = async () => {
     try {
@@ -58,8 +126,8 @@ export default function CampaignsPage() {
   }, []);
 
   const handleCreate = async () => {
-    if (!formData.name || !formData.price || !formData.total_count || !formData.prefix) {
-      toast.error('Please fill all fields');
+    if (!formData.name || !formData.price || !validation.valid) {
+      toast.error('Please fill all fields correctly');
       return;
     }
 
@@ -75,15 +143,15 @@ export default function CampaignsPage() {
         body: JSON.stringify({
           name: formData.name,
           price: parseFloat(formData.price),
-          total_count: parseInt(formData.total_count),
-          prefix: formData.prefix.toUpperCase()
+          start_code: formData.start_code.toUpperCase(),
+          end_code: formData.end_code.toUpperCase()
         })
       });
 
       if (response.ok) {
-        toast.success('Campaign created successfully!');
+        toast.success(`Campaign created with ${validation.totalCoupons} coupons!`);
         setCreateDialogOpen(false);
-        setFormData({ name: '', price: '', total_count: '', prefix: '' });
+        setFormData({ name: '', price: '', start_code: '', end_code: '' });
         fetchCampaigns();
       } else {
         const error = await response.json();
@@ -175,7 +243,7 @@ export default function CampaignsPage() {
                   Create Campaign
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="font-['Barlow_Condensed'] text-2xl">Create New Campaign</DialogTitle>
                 </DialogHeader>
@@ -189,47 +257,83 @@ export default function CampaignsPage() {
                       data-testid="campaign-name-input"
                     />
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Price (₹)</Label>
+                    <Input
+                      type="number"
+                      placeholder="149"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      data-testid="campaign-price-input"
+                    />
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Price (₹)</Label>
+                      <Label>Start Coupon Code</Label>
                       <Input
-                        type="number"
-                        placeholder="149"
-                        value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                        data-testid="campaign-price-input"
+                        placeholder="e.g., UT100"
+                        value={formData.start_code}
+                        onChange={(e) => setFormData({ ...formData, start_code: e.target.value.toUpperCase() })}
+                        data-testid="campaign-start-code-input"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Total Coupons</Label>
+                      <Label>End Coupon Code</Label>
                       <Input
-                        type="number"
-                        placeholder="100"
-                        value={formData.total_count}
-                        onChange={(e) => setFormData({ ...formData, total_count: e.target.value })}
-                        data-testid="campaign-count-input"
+                        placeholder="e.g., UT400"
+                        value={formData.end_code}
+                        onChange={(e) => setFormData({ ...formData, end_code: e.target.value.toUpperCase() })}
+                        data-testid="campaign-end-code-input"
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Coupon Prefix</Label>
-                    <Input
-                      placeholder="e.g., MUM, SA, DLX"
-                      value={formData.prefix}
-                      onChange={(e) => setFormData({ ...formData, prefix: e.target.value.toUpperCase() })}
-                      maxLength={10}
-                      data-testid="campaign-prefix-input"
-                    />
-                    <p className="text-xs text-zinc-500">
-                      Coupons will be: {formData.prefix || 'XX'}001, {formData.prefix || 'XX'}002...
-                    </p>
-                  </div>
+                  
+                  {/* Validation Alert */}
+                  {(formData.start_code || formData.end_code) && (
+                    <Alert className={validation.valid ? 'border-green-500 bg-green-50' : 'border-amber-500 bg-amber-50'}>
+                      <AlertDescription className="flex items-center gap-2">
+                        {validation.valid ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="text-green-800">{validation.message}</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                            <span className="text-amber-800">{validation.message || 'Enter both start and end codes'}</span>
+                          </>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {validation.valid && (
+                    <div className="p-4 bg-zinc-50 rounded-lg border">
+                      <h4 className="font-medium text-sm text-zinc-700 mb-2">Preview</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="text-zinc-500">Prefix:</div>
+                        <div className="font-mono font-medium">{validation.prefix}</div>
+                        <div className="text-zinc-500">Total Coupons:</div>
+                        <div className="font-bold text-blue-600">{validation.totalCoupons}</div>
+                        <div className="text-zinc-500">First Code:</div>
+                        <div className="font-mono">{formData.start_code.toUpperCase()}</div>
+                        <div className="text-zinc-500">Last Code:</div>
+                        <div className="font-mono">{validation.prefix}{parseInt(formData.end_code.match(/\d+/)?.[0] || 0) - 1}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreate} disabled={creating} data-testid="confirm-create-btn">
+                  <Button 
+                    onClick={handleCreate} 
+                    disabled={creating || !validation.valid || !formData.name || !formData.price} 
+                    data-testid="confirm-create-btn"
+                  >
                     {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                    Create Campaign
+                    Create {validation.totalCoupons > 0 ? `(${validation.totalCoupons} coupons)` : 'Campaign'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
