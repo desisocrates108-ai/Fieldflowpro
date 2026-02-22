@@ -61,13 +61,29 @@ async def get_cre_dashboard_stats(
 @router.get("/cre/customers", response_model=List[CRECustomerView])
 async def get_cre_customers(
     pending_only: bool = False,
-    limit: int = 100,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    limit: int = 500,  # Increased limit
     current_user: dict = Depends(require_roles("cre"))
 ):
-    """Get customers for CRE to call - Full mobile visible"""
+    """
+    Get customers for CRE to call - Full mobile visible
+    Supports date filtering with from_date and to_date (YYYY-MM-DD format)
+    """
     from utils import decrypt_mobile
     
     query = {"status": "SOLD"}
+    
+    # Apply date filters
+    if from_date or to_date:
+        date_query = {}
+        if from_date:
+            date_query["$gte"] = f"{from_date}T00:00:00"
+        if to_date:
+            date_query["$lte"] = f"{to_date}T23:59:59"
+        if date_query:
+            query["sold_at"] = date_query
+    
     coupons = await db.campaign_coupons.find(query, {"_id": 0}).sort("sold_at", -1).to_list(limit)
     
     results = []
@@ -79,6 +95,12 @@ async def get_cre_customers(
         # Get branch info
         branch = await db.branches.find_one({"id": coupon.get("branch_id")}, {"_id": 0})
         branch_name = branch["name"] if branch else "Not Assigned"
+        
+        # Get worker info
+        worker = None
+        if coupon.get("sold_by_worker_id"):
+            worker = await db.users.find_one({"id": coupon["sold_by_worker_id"]}, {"_id": 0, "name": 1})
+        worker_name = worker["name"] if worker else "N/A"
         
         # Get last call log
         last_call = await db.cre_call_logs.find_one(
@@ -105,6 +127,7 @@ async def get_cre_customers(
             campaign_name=campaign_name,
             branch_id=coupon.get("branch_id", ""),
             branch_name=branch_name,
+            worker_name=worker_name,  # Added worker name
             sold_at=coupon["sold_at"],
             call_status=last_call["call_status"] if last_call else "PENDING",
             last_call_timestamp=datetime.fromisoformat(last_call["call_timestamp"]) if last_call and isinstance(last_call.get("call_timestamp"), str) else last_call.get("call_timestamp") if last_call else None,
