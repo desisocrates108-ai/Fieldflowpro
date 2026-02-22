@@ -929,3 +929,63 @@ async def worker_sale_coupon(
         message=f"Coupon sold successfully! ₹{campaign['price']} added to your ledger.",
         ocr_mismatch_warning=ocr_warning
     )
+
+
+
+# ========== WORKER MY SALES ==========
+
+@router.get("/worker/my-sales")
+async def get_worker_sales(
+    limit: int = 100,
+    current_user: dict = Depends(require_roles("worker"))
+):
+    """
+    Get all sales made by the current worker.
+    Returns with Worker Name, Branch Name, Campaign Name.
+    """
+    worker_id = current_user["sub"]
+    
+    # Get worker info
+    worker = await db.users.find_one({"id": worker_id}, {"_id": 0, "name": 1})
+    worker_name = worker["name"] if worker else "Unknown"
+    
+    # Get all sold coupons by this worker
+    coupons = await db.campaign_coupons.find(
+        {"sold_by_worker_id": worker_id, "status": "SOLD"},
+        {"_id": 0}
+    ).sort("sold_at", -1).to_list(limit)
+    
+    results = []
+    for coupon in coupons:
+        # Get campaign info
+        campaign = await db.campaigns.find_one(
+            {"id": coupon["campaign_id"]},
+            {"_id": 0, "name": 1, "price": 1}
+        )
+        
+        # Get branch info
+        branch = None
+        if coupon.get("branch_id"):
+            branch = await db.branches.find_one(
+                {"id": coupon["branch_id"]},
+                {"_id": 0, "name": 1}
+            )
+        
+        results.append({
+            "coupon_id": coupon["id"],
+            "coupon_code": coupon["code"],
+            "customer_name": coupon.get("customer_name", ""),
+            "customer_phone_last4": coupon.get("customer_phone_last4", ""),
+            "worker_id": worker_id,
+            "worker_name": worker_name,
+            "branch_id": coupon.get("branch_id"),
+            "branch_name": branch["name"] if branch else "N/A",
+            "campaign_id": coupon["campaign_id"],
+            "campaign_name": campaign["name"] if campaign else "Unknown",
+            "campaign_price": campaign["price"] if campaign else 0,
+            "sold_at": coupon.get("sold_at"),
+            "city": coupon.get("city", ""),
+            "state": coupon.get("state", "")
+        })
+    
+    return results
