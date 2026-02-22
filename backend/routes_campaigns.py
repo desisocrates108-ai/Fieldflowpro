@@ -283,10 +283,10 @@ async def get_campaign(
 async def get_campaign_coupons(
     campaign_id: str,
     status: Optional[str] = None,
-    limit: int = 100,
+    limit: int = 1000,  # Increased from 100 to 1000 for larger campaigns
     current_user: dict = Depends(require_roles("admin", "cre"))
 ):
-    """Get coupons for a campaign"""
+    """Get coupons for a campaign (NO hardcoded limit on generation)"""
     query = {"campaign_id": campaign_id}
     if status:
         query["status"] = status
