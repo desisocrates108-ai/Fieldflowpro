@@ -118,9 +118,9 @@ export default function SaleCouponPage() {
 
       const data = await response.json();
       
-      if (response.ok && data.is_valid) {
+      if (response.ok && (data.valid || data.is_valid)) {
         setValidatedCoupon(data);
-        toast.success(`Valid coupon: ${data.campaign_name} - ₹${data.price}`);
+        toast.success(`Valid coupon: ${data.campaign_name} - ₹${data.campaign_price || data.price}`);
         setStep(2);
       } else {
         toast.error(data.detail || data.message || 'Invalid coupon code');
