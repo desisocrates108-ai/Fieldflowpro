@@ -198,17 +198,17 @@ async def create_campaign(
         
         return CampaignResponse(
             id=campaign.id,
-        name=campaign.name,
-        price=campaign.price,
-        total_count=campaign.total_count,
-        prefix=campaign.prefix,
-        digit_padding=campaign.digit_padding,
-        status=campaign.status,
-        sold_count=0,
-        available_count=total_count,
-        created_by=campaign.created_by,
-        created_at=campaign.created_at
-    )
+            name=campaign.name,
+            price=campaign.price,
+            total_count=campaign.total_count,
+            prefix=campaign.prefix,
+            digit_padding=campaign.digit_padding,
+            status=campaign.status,
+            sold_count=0,
+            available_count=total_count,
+            created_by=campaign.created_by,
+            created_at=campaign.created_at
+        )
     except HTTPException:
         raise
     except Exception as e:
