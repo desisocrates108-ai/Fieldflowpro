@@ -1,195 +1,201 @@
-# FieldFlow Pro - Product Requirements Document
-
-## Overview
-FieldFlow Pro is a production-ready, pan-India field revenue intelligence system for field service companies. Supports Admin, Worker, CRE, and Branch roles with comprehensive coupon management, sales tracking, expense handling, and fraud detection.
-
-## Current Version: 4.1.0
-**Last Updated**: February 22, 2026
-**Status**: ✅ ALL SYSTEM UPDATES COMPLETE
+# Field Flow Pro - Product Requirements Document
+## Pan-India Field Revenue Intelligence System v4.2.0
 
 ---
 
-## Recent Updates (v4.1.0)
+## Original Problem Statement
 
-### 1. Campaign Creation - Start/End Code Range ✅
-- Input: `start_code` and `end_code`
-- Auto-calculates total (end - start)
-- **NO hardcoded limits** - tested with 500, 700, 1000 coupons
-- Example: UT100 to UT300 creates 200 coupons (UT100-UT299)
+Build a production-ready, offline-first Progressive Web App (PWA) for a field service company called "Field Flow Pro". The application has evolved from a simple coupon app to a comprehensive "pan-India field revenue intelligence system" (Elite v4.0).
 
-### 2. Worker Sale Flow - Simplified ✅
-- **Removed OCR from sale submission**
-- Flow: Validate coupon → Customer details → Branch select → Submit
-- Photo capture is optional
-- GPS validation (<100m accuracy required)
+### Core Requirements
+- Multi-role system: Admin, Worker, Branch Manager, CRE
+- Campaign and coupon management with range-based generation
+- Worker financial ledgers and expense tracking
+- GPS-based sales tracking with fraud detection
+- Real-time admin dashboard with intelligence features
 
-### 3. Worker My Sales - Enhanced ✅
-- Now includes: **Worker Name**, **Branch Name**, **Campaign Name**
-- API: `GET /api/campaigns/worker/my-sales`
+---
 
-### 4. CRE Dashboard - Excel-Style ✅
-- **Date Filters**: Today, Yesterday, 7D, Custom Range
-- **Sortable columns**: Date, Customer, Mobile, Coupon, Campaign, Branch, Worker, Status, Remarks
-- **Search**: By name, phone, or coupon code
-- **Campaign/Branch filters**
-- **CSV Export** button
-- **Quick Call Tab**: Search + scrollable contact list
+## User Personas
 
-### 5. Expense Approval System ✅
-- Admin can Approve/Reject with reason
-- **Only APPROVED expenses affect net_payable**
-- Worker sees status and rejection reason
+1. **Admin**: Full system control, user management, campaign creation, analytics
+2. **Worker**: Field sales, coupon distribution, expense submission, attendance
+3. **Branch Manager**: Coupon encashment, local oversight
+4. **CRE (Customer Relations Executive)**: Customer follow-up, call logging
 
-### 6. Branch Management ✅
-- **Remove/Deactivate** with dependency check
-- If dependencies exist → Soft delete (deactivate)
-- If no dependencies → Hard delete
+---
+
+## What's Been Implemented
+
+### v4.2.0 - Production Ready (February 24, 2026)
+
+#### P0 - Critical (Completed)
+- [x] **Coupon Range Generation Fix**: No artificial limits - tested with 100, 300+ coupons successfully
+- [x] **Public Signup Removed**: `/api/auth/register` route removed - returns 404
+- [x] **Login Management Panel**: Admin can create/manage Workers, Branch, CRE users
+  - Create users with role assignment
+  - Password reset functionality
+  - Activate/Deactivate accounts
+  - Delete users (with dependency checks)
+- [x] **4-Step Worker Sale Flow**: 
+  1. Enter & Validate Coupon Code
+  2. Capture Photo (Optional - enables OCR)
+  3. Enter Customer Details
+  4. Select Branch & Confirm
+- [x] **OCR is Optional**: Non-blocking, auto-fills if available
+
+#### P1 - High Priority (Completed)
+- [x] **API Key Management Panel**: Generate, view, toggle, delete API keys
+- [x] **My Sales Enhanced**: Returns `worker_name`, `branch_name`, `city`, `state`
+- [x] **Dummy Data Cleanup**: Endpoint to clear test data while keeping users
+
+#### P2 - UI & Security (Completed)
+- [x] **Global Theme Color #ED1C24**: Applied to all primary elements
+- [x] **JWT & RBAC**: Verified and working
+- [x] **Input Validation**: Server-side validation on all endpoints
+- [x] **Audit Logging**: All admin actions logged
+
+### v4.0.0 - Elite Features (Previously Completed)
+- [x] Worker Performance Scoring Engine
+- [x] Fraud Detection Engine (Duplicate Mobile, GPS Clustering)
+- [x] Inactive Worker Alerts Panel
+- [x] Real-time Admin Dashboard with WebSockets
+- [x] Expense Approval System (Approve/Reject)
+- [x] Branch Management with safe delete/deactivate
+
+### v3.0.0 - Core System (Previously Completed)
+- [x] Multi-role authentication system
+- [x] Campaign CRUD with range-based coupon generation
+- [x] Worker sales with GPS tracking
+- [x] Branch coupon encashment
+- [x] CRE customer dashboard
+- [x] Financial ledgers and transactions
 
 ---
 
 ## API Endpoints
 
-### Campaign APIs
-```
-POST /api/campaigns                    # Create with start_code/end_code
-GET  /api/campaigns                    # List all
-GET  /api/campaigns/{id}/coupons       # Get coupons (limit=1000)
-POST /api/campaigns/validate-code      # Validate coupon code
-POST /api/campaigns/worker-sale        # Complete sale (no OCR)
-GET  /api/campaigns/worker/my-sales    # Worker's sales history
-```
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/refresh` - Refresh token
+- ~~`POST /api/auth/register`~~ - REMOVED (Admin-only user creation)
 
-### CRE APIs
-```
-GET  /api/cre/customers                # List customers
-     ?from_date=YYYY-MM-DD             # Date filter
-     ?to_date=YYYY-MM-DD               # Date filter
-     ?pending_only=true                # Only pending calls
-GET  /api/cre/dashboard/stats          # Dashboard stats
-POST /api/cre/calls/{coupon_id}/log    # Log a call
-POST /api/cre/calls/{log_id}/remarks   # Add remarks (mandatory)
-```
+### Admin - User Management
+- `POST /api/admin/users` - Create user (Worker/Branch/CRE)
+- `GET /api/admin/users` - List all users
+- `GET /api/admin/users/{id}` - Get user details
+- `PATCH /api/admin/users/{id}` - Update user
+- `POST /api/admin/users/{id}/reset-password` - Reset password
+- `POST /api/admin/users/{id}/activate` - Activate user
+- `POST /api/admin/users/{id}/deactivate` - Deactivate user
+- `DELETE /api/admin/users/{id}` - Delete user
 
-### Expense APIs
-```
-POST  /api/expenses                    # Submit expense
-GET   /api/expenses                    # List expenses
-PATCH /api/expenses/{id}/approve       # Approve/Reject
-      {"approved": true}               # Approve
-      {"approved": false, "rejection_reason": "..."}  # Reject
-```
+### Admin - API Keys
+- `POST /api/admin/api-keys` - Generate new API key
+- `GET /api/admin/api-keys` - List all API keys
+- `POST /api/admin/api-keys/{id}/toggle` - Toggle key status
+- `DELETE /api/admin/api-keys/{id}` - Delete API key
 
-### Branch APIs
-```
-POST   /api/branches                   # Create branch
-GET    /api/branches                   # List branches
-DELETE /api/branches/{id}              # Remove/Deactivate
-PATCH  /api/branches/{id}/activate     # Re-activate
-```
+### Admin - System
+- `GET /api/admin/database-stats` - Database collection counts
+- `POST /api/admin/cleanup-dummy-data` - Clear test data
 
-### Intelligence APIs (Elite v4.0)
-```
-GET  /api/intelligence/realtime-metrics
-GET  /api/intelligence/worker-scores
-GET  /api/intelligence/fraud-alerts
-POST /api/intelligence/scan-fraud
-GET  /api/intelligence/inactive-workers
-GET  /api/intelligence/area-intelligence
-```
+### Campaigns
+- `POST /api/campaigns` - Create campaign with coupon range
+- `GET /api/campaigns` - List campaigns
+- `GET /api/campaigns/{id}/coupons` - Get campaign coupons
+- `POST /api/campaigns/validate-code` - Validate coupon code
+- `POST /api/campaigns/worker-sale` - Record worker sale
 
 ---
 
-## Test Results
+## Database Schema
 
-### v4.1.0 Tests: ✅ 100% PASS (22/22 backend tests)
-- Worker My Sales API with joins
-- CRE Date Filter
-- Coupon Range Generation (no limits)
-- CRE Dashboard Excel Table
-- Quick Call Section
-- CSV Export
+### Core Collections
+- `users` - All user accounts (admin, worker, branch, cre)
+- `campaigns` - Campaign definitions with pricing
+- `campaign_coupons` - Individual coupon records
+- `branches` - Branch/location data
+- `areas` - Geographic areas
 
-### Verified Campaigns
-| Campaign | Prefix | Coupons | Notes |
-|----------|--------|---------|-------|
-| Range Test 200 | RNG | 200 | RNG100-RNG299 |
-| Final Test | FIN | 100 | FIN500-FIN599 |
-| Large Test | LRG | 500 | No limit verified |
-| Diwali | TT | 700 | No limit verified |
-| Ahemdabad | UT100 | 1000 | No limit verified |
+### Financial Collections
+- `worker_ledgers` - Worker financial summary
+- `ledger_transactions` - Individual transactions
+- `expenses` - Worker expense submissions
+- `encashments` - Branch encashment records
+
+### Intelligence Collections
+- `fraud_alerts` - Detected fraud indicators
+- `worker_performance_scores` - Performance metrics
+- `inactivity_logs` - Worker inactivity tracking
+- `api_keys` - External integration keys
+- `audit_logs` - System audit trail
+
+---
+
+## Tech Stack
+
+### Backend
+- FastAPI (Python 3.11)
+- MongoDB with Motor (async driver)
+- JWT authentication with bcrypt
+- WebSockets for real-time updates
+- APScheduler for background tasks
+
+### Frontend
+- React 18 with React Router
+- Tailwind CSS + Shadcn/UI components
+- Tesseract.js for optional OCR
+- react-webcam for photo capture
+
+---
+
+## Remaining Backlog
+
+### P1 - Future Enhancements
+- [ ] CRE Dashboard Overhaul (Excel-style grid, advanced filters)
+- [ ] Live Map feature using Mapbox
+- [ ] WebSocket real-time updates for CRE dashboard
+
+### P2 - Infrastructure
+- [ ] Migrate database to PostgreSQL
+- [ ] Migrate image storage to AWS S3
+- [ ] Migrate frontend to Vite build system
+- [ ] Full PWA offline-first strategy
+- [ ] Replace mock OTP with Twilio SMS
 
 ---
 
 ## Test Credentials
-- **Admin**: testadmin@fieldflow.com / admin123
-- **Worker**: testworker@fieldflow.com / worker123
-- **CRE**: testcre@fieldflow.com / cre123
-- **Branch**: testbranch@fieldflow.com / branch123
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | testadmin@fieldflow.com | admin123 |
+| Worker | testworker@fieldflow.com | worker123 |
+| Branch | testbranch@fieldflow.com | branch123 |
+| CRE | testcre@fieldflow.com | cre123 |
 
 ---
 
-## Business Rules
+## Changelog
 
-### Campaign
-- Prefix mismatch → Rejected
-- End ≤ Start → Rejected
-- Overlap with existing → Rejected
-- Total = End - Start (end code exclusive)
+### February 24, 2026 - v4.2.0
+- Implemented COMPLETE MASTER PRODUCTION PROMPT
+- Removed public signup routes
+- Added Login Management panel
+- Added API Key Management panel
+- Implemented 4-step worker sale flow
+- Applied global theme color #ED1C24
+- Added dummy data cleanup endpoint
+- Verified coupon range generation (no limits)
 
-### Expense
-- Amount > ₹100 → Bill photo mandatory
-- Only APPROVED expenses deduct from net_payable
-- Rejected expenses → Show reason to worker
+### February 23, 2026 - v4.1.0
+- Made OCR optional and non-blocking
+- Added worker_name, branch_name to My Sales
+- Enhanced CRE dashboard with date filters
 
-### Branch
-- With workers/coupons/encashments → Soft delete (deactivate)
-- No dependencies → Hard delete
-
-### GPS
-- Accuracy must be ≤ 100m for sale
-- >50km in <10 mins → Fraud alert
-
----
-
-## File Structure
-```
-/app/backend/
-├── server.py                 # Main app (v4.1.0)
-├── routes_campaigns.py       # Campaign + Worker Sale + My Sales
-├── routes_cre_branch.py      # CRE with date filter + Branch
-├── routes_ledger.py          # Expense approval
-├── routes_intelligence.py    # Fraud detection, scoring
-└── models.py                 # All models
-
-/app/frontend/src/pages/
-├── admin/
-│   ├── Dashboard.jsx         # Command Center
-│   ├── Campaigns.jsx         # Start/End code UI
-│   ├── Ledger.jsx            # Expense approval UI
-│   └── Branches.jsx          # Remove/Deactivate UI
-├── worker/
-│   ├── SaleCoupon.jsx        # Simplified sale + My Sales
-│   └── Expenses.jsx          # Status + rejection reason
-└── cre/
-    └── Dashboard.jsx         # Excel table + Quick Call
-```
-
----
-
-## Upcoming Tasks
-
-### P1
-- [ ] Live Map with Mapbox (awaiting API key)
-- [ ] WebSocket real-time updates for CRE
-
-### P2/Backlog
-- [ ] Migrate to PostgreSQL
-- [ ] Migrate frontend to Vite
-- [ ] S3 storage
-- [ ] Offline-first PWA
-- [ ] Real SMS (Twilio)
-
----
-
-## Mocked APIs
-- **OTP**: `POST /api/coupons/request-otp` returns mock_otp
+### February 22, 2026 - v4.0.0
+- Elite features: Fraud detection, performance scoring
+- Admin command center with real-time metrics
+- Expense approval system
+- Branch safe delete/deactivate
