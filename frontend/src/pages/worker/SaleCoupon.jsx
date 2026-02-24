@@ -503,7 +503,7 @@ export default function SaleCouponPage() {
                     <Alert className="border-green-500 bg-green-50">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <AlertDescription className="text-green-800">
-                        <strong>{validatedCoupon.campaign_name}</strong> - ₹{validatedCoupon.price}
+                        <strong>{validatedCoupon.campaign_name}</strong> - ₹{validatedCoupon.campaign_price || validatedCoupon.price}
                         <span className="ml-2 font-mono">({couponCode})</span>
                       </AlertDescription>
                     </Alert>
