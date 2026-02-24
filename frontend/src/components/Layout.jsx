@@ -19,7 +19,8 @@ import {
   User,
   Package,
   Receipt,
-  UserCog
+  UserCog,
+  Key
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
