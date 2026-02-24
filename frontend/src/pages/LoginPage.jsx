@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -7,6 +7,8 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { MapPin, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const THEME_COLOR = '#ED1C24';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -64,13 +66,13 @@ export default function LoginPage() {
           alt="Field technician" 
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/20" />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(to right, rgba(0,0,0,0.7), ${THEME_COLOR}30)` }} />
         <div className="relative z-10 flex flex-col justify-end p-12 text-white">
-          <h1 className="text-5xl font-bold font-['Barlow_Condensed'] mb-4">
+          <h1 className="text-5xl font-bold font-['Barlow_Condensed'] mb-4" style={{ color: THEME_COLOR }}>
             FieldFlow Pro
           </h1>
           <p className="text-xl text-white/80 max-w-md">
-            Streamline your field operations with GPS tracking, coupon management, and real-time workforce coordination.
+            Pan-India Field Revenue Intelligence System for streamlined operations, GPS tracking, and workforce coordination.
           </p>
         </div>
       </div>
@@ -80,10 +82,10 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: THEME_COLOR }}>
               <MapPin className="h-7 w-7 text-white" />
             </div>
-            <span className="text-3xl font-bold font-['Barlow_Condensed']">FieldFlow Pro</span>
+            <span className="text-3xl font-bold font-['Barlow_Condensed']" style={{ color: THEME_COLOR }}>FieldFlow Pro</span>
           </div>
           
           <Card className="border-0 shadow-lg">
@@ -131,6 +133,7 @@ export default function LoginPage() {
                 <Button 
                   type="submit" 
                   className="w-full h-11"
+                  style={{ backgroundColor: THEME_COLOR }}
                   disabled={loading}
                   data-testid="login-submit-btn"
                 >
@@ -145,22 +148,19 @@ export default function LoginPage() {
                 </Button>
               </form>
               
-              <div className="mt-6 text-center text-sm">
-                <span className="text-zinc-500">Don't have an account? </span>
-                <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-                  Sign up
-                </Link>
+              <div className="mt-6 text-center text-sm text-zinc-500">
+                Contact your administrator if you need an account.
               </div>
             </CardContent>
           </Card>
           
-          {/* Demo credentials */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials:</p>
-            <p className="text-xs text-blue-700">Admin: admin@fieldflow.com / admin123</p>
-            <p className="text-xs text-blue-700">Worker: worker@fieldflow.com / worker123</p>
-            <p className="text-xs text-blue-700">Branch: branch@fieldflow.com / branch123</p>
-            <p className="text-xs text-blue-700">CRE: cre@fieldflow.com / cre123</p>
+          {/* Demo credentials - styled with theme color */}
+          <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: `${THEME_COLOR}10`, border: `1px solid ${THEME_COLOR}30` }}>
+            <p className="text-sm font-medium mb-2" style={{ color: THEME_COLOR }}>Demo Credentials:</p>
+            <p className="text-xs text-zinc-600">Admin: testadmin@fieldflow.com / admin123</p>
+            <p className="text-xs text-zinc-600">Worker: testworker@fieldflow.com / worker123</p>
+            <p className="text-xs text-zinc-600">Branch: testbranch@fieldflow.com / branch123</p>
+            <p className="text-xs text-zinc-600">CRE: testcre@fieldflow.com / cre123</p>
           </div>
         </div>
       </div>
