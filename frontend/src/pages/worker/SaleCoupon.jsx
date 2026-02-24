@@ -9,14 +9,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import Webcam from 'react-webcam';
+import { createWorker } from 'tesseract.js';
 import { 
   Ticket, User, Phone, Camera, MapPin, Building2,
   Loader2, CheckCircle, AlertTriangle, Search,
-  RefreshCcw, History
+  RefreshCcw, History, Eye, ScanLine
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+// OCR is optional - set to false to disable OCR completely
+const USE_OCR = true;
 
 export default function SaleCouponPage() {
   const [activeTab, setActiveTab] = useState('sale');
@@ -34,6 +38,13 @@ export default function SaleCouponPage() {
   const [location, setLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  
+  // OCR state (optional - non-blocking)
+  const [ocrRunning, setOcrRunning] = useState(false);
+  const [ocrResult, setOcrResult] = useState(null);
+  const [ocrDetectedName, setOcrDetectedName] = useState('');
+  const [ocrDetectedPhone, setOcrDetectedPhone] = useState('');
+  const [ocrConfidence, setOcrConfidence] = useState(0);
   
   // My Sales state
   const [mySales, setMySales] = useState([]);
@@ -122,16 +133,76 @@ export default function SaleCouponPage() {
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
       setPhoto(imageSrc);
       toast.success('Photo captured');
+      
+      // Run OCR in background (non-blocking)
+      if (USE_OCR && imageSrc) {
+        runOCR(imageSrc);
+      }
+    }
+  };
+
+  // OCR runs in background - does NOT block submission
+  const runOCR = async (imageSrc) => {
+    setOcrRunning(true);
+    setOcrResult(null);
+    
+    try {
+      const worker = await createWorker('eng');
+      const { data } = await worker.recognize(imageSrc);
+      await worker.terminate();
+      
+      setOcrResult(data.text);
+      setOcrConfidence(data.confidence);
+      
+      // Try to extract name and phone from OCR text
+      const lines = data.text.split('\n').filter(l => l.trim());
+      
+      // Simple extraction - look for patterns
+      let detectedName = '';
+      let detectedPhone = '';
+      
+      for (const line of lines) {
+        // Phone pattern
+        const phoneMatch = line.match(/(\d{10})/);
+        if (phoneMatch && !detectedPhone) {
+          detectedPhone = phoneMatch[1];
+        }
+        
+        // Name pattern (lines with mostly letters)
+        if (!detectedName && line.length > 3 && /^[a-zA-Z\s]+$/.test(line.trim())) {
+          detectedName = line.trim();
+        }
+      }
+      
+      setOcrDetectedName(detectedName);
+      setOcrDetectedPhone(detectedPhone);
+      
+      // Auto-fill if fields are empty (helpful, not required)
+      if (detectedName && !customerName) {
+        setCustomerName(detectedName);
+      }
+      if (detectedPhone && !customerPhone) {
+        setCustomerPhone(detectedPhone);
+      }
+      
+      if (detectedName || detectedPhone) {
+        toast.info('OCR detected some data - please verify');
+      }
+    } catch (error) {
+      console.error('OCR failed:', error);
+      // OCR failure is NOT a blocker - sale can proceed
+    } finally {
+      setOcrRunning(false);
     }
   };
 
   const submitSale = async () => {
-    // Validations
+    // Validations - OCR is NOT required
     if (!validatedCoupon) {
       toast.error('Please validate coupon code first');
       return;
@@ -169,7 +240,11 @@ export default function SaleCouponPage() {
         branch_id: selectedBranch,
         latitude: location.latitude,
         longitude: location.longitude,
-        gps_accuracy: location.accuracy
+        gps_accuracy: location.accuracy,
+        // OCR data is optional - sent if available
+        ocr_detected_name: ocrDetectedName || null,
+        ocr_detected_phone: ocrDetectedPhone || null,
+        ocr_confidence: ocrConfidence || null
       };
       
       // Add photo if captured (optional)
@@ -190,16 +265,14 @@ export default function SaleCouponPage() {
 
       if (response.ok) {
         toast.success(data.message || 'Coupon sold successfully!');
+        
+        // Show OCR mismatch warning if any (informational only)
+        if (data.ocr_mismatch_warning) {
+          toast.warning(data.ocr_mismatch_warning, { duration: 5000 });
+        }
+        
         // Reset form
-        setStep(1);
-        setCouponCode('');
-        setValidatedCoupon(null);
-        setCustomerName('');
-        setCustomerPhone('');
-        setSelectedBranch('');
-        setPhoto(null);
-        // Refresh location
-        getCurrentLocation();
+        resetSale();
       } else {
         toast.error(data.detail || 'Failed to complete sale');
       }
@@ -208,6 +281,21 @@ export default function SaleCouponPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const resetSale = () => {
+    setStep(1);
+    setCouponCode('');
+    setValidatedCoupon(null);
+    setCustomerName('');
+    setCustomerPhone('');
+    setSelectedBranch('');
+    setPhoto(null);
+    setOcrResult(null);
+    setOcrDetectedName('');
+    setOcrDetectedPhone('');
+    setOcrConfidence(0);
+    getCurrentLocation();
   };
 
   const fetchMySales = async () => {
@@ -244,17 +332,6 @@ export default function SaleCouponPage() {
     });
   };
 
-  const resetSale = () => {
-    setStep(1);
-    setCouponCode('');
-    setValidatedCoupon(null);
-    setCustomerName('');
-    setCustomerPhone('');
-    setSelectedBranch('');
-    setPhoto(null);
-    getCurrentLocation();
-  };
-
   return (
     <Layout>
       <div className="space-y-6" data-testid="worker-sale-page">
@@ -286,17 +363,16 @@ export default function SaleCouponPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Ticket className="h-5 w-5 text-blue-600" />
-                  {step === 1 ? 'Step 1: Enter Coupon Code' : 
-                   step === 2 ? 'Step 2: Customer Details' : 
-                   'Step 3: Review & Submit'}
+                  {step === 1 ? 'Step 1: Coupon Details' : 'Step 2: Customer Details & Submit'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Step 1: Coupon Code */}
+                {/* Step 1: Coupon Code + Photo */}
                 {step === 1 && (
                   <div className="space-y-4">
+                    {/* Coupon Code Input */}
                     <div className="space-y-2">
-                      <Label>Coupon Code</Label>
+                      <Label>Coupon Code *</Label>
                       <div className="flex gap-2">
                         <Input
                           placeholder="e.g., UT100"
@@ -316,16 +392,19 @@ export default function SaleCouponPage() {
                       </div>
                     </div>
 
-                    {/* Camera for optional photo capture */}
+                    {/* Camera for Photo Capture */}
                     <div className="space-y-2">
-                      <Label>Photo (Optional)</Label>
+                      <Label className="flex items-center gap-2">
+                        <Camera className="h-4 w-4" />
+                        Coupon Photo (Optional - enables OCR)
+                      </Label>
                       <div className="border rounded-lg overflow-hidden bg-zinc-100">
                         {!photo ? (
                           <div className="relative">
                             <Webcam
                               ref={webcamRef}
                               screenshotFormat="image/jpeg"
-                              className="w-full h-48 object-cover"
+                              className="w-full h-52 object-cover"
                               videoConstraints={{
                                 facingMode: 'environment',
                                 width: 640,
@@ -333,27 +412,62 @@ export default function SaleCouponPage() {
                               }}
                             />
                             <Button 
-                              className="absolute bottom-2 left-1/2 -translate-x-1/2"
+                              className="absolute bottom-3 left-1/2 -translate-x-1/2"
                               onClick={capturePhoto}
                             >
                               <Camera className="h-4 w-4 mr-2" />
-                              Capture
+                              Capture Photo
                             </Button>
                           </div>
                         ) : (
                           <div className="relative">
-                            <img src={photo} alt="Captured" className="w-full h-48 object-cover" />
+                            <img src={photo} alt="Captured" className="w-full h-52 object-cover" />
+                            <div className="absolute top-2 right-2">
+                              {ocrRunning && (
+                                <Badge className="bg-blue-600">
+                                  <ScanLine className="h-3 w-3 mr-1 animate-pulse" />
+                                  Scanning...
+                                </Badge>
+                              )}
+                              {!ocrRunning && ocrResult && (
+                                <Badge className="bg-green-600">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  OCR Done
+                                </Badge>
+                              )}
+                            </div>
                             <Button 
-                              className="absolute bottom-2 left-1/2 -translate-x-1/2"
+                              className="absolute bottom-3 left-1/2 -translate-x-1/2"
                               variant="secondary"
-                              onClick={() => setPhoto(null)}
+                              onClick={() => {
+                                setPhoto(null);
+                                setOcrResult(null);
+                                setOcrDetectedName('');
+                                setOcrDetectedPhone('');
+                              }}
                             >
-                              Retake
+                              Retake Photo
                             </Button>
                           </div>
                         )}
                       </div>
+                      <p className="text-xs text-zinc-500">
+                        Photo helps with OCR auto-fill but is not required for sale.
+                      </p>
                     </div>
+
+                    {/* OCR Results (if available) */}
+                    {ocrResult && (ocrDetectedName || ocrDetectedPhone) && (
+                      <Alert className="border-blue-500 bg-blue-50">
+                        <Eye className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-800">
+                          <strong>OCR Detected:</strong>
+                          {ocrDetectedName && <span className="ml-2">Name: {ocrDetectedName}</span>}
+                          {ocrDetectedPhone && <span className="ml-2">| Phone: {ocrDetectedPhone}</span>}
+                          <span className="ml-2 text-xs">(Confidence: {ocrConfidence.toFixed(0)}%)</span>
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
                     {/* GPS Status */}
                     <div className="flex items-center gap-2 p-3 bg-zinc-50 rounded-lg">
@@ -382,7 +496,7 @@ export default function SaleCouponPage() {
                   </div>
                 )}
 
-                {/* Step 2: Customer Details */}
+                {/* Step 2: Customer Details & Submit */}
                 {step === 2 && validatedCoupon && (
                   <div className="space-y-4">
                     {/* Validated Coupon Info */}
@@ -394,6 +508,36 @@ export default function SaleCouponPage() {
                       </AlertDescription>
                     </Alert>
 
+                    {/* Show captured photo if any */}
+                    {photo && (
+                      <div className="relative">
+                        <img src={photo} alt="Coupon" className="w-full max-w-md rounded-lg border" />
+                        {ocrRunning && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                            <div className="text-white text-center">
+                              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                              <p>Scanning with OCR...</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* OCR comparison (informational) */}
+                    {ocrResult && (ocrDetectedName || ocrDetectedPhone) && (
+                      <Alert className="border-blue-200 bg-blue-50">
+                        <Eye className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-700 text-sm">
+                          <strong>OCR Suggestion:</strong> 
+                          {ocrDetectedName && <span className="ml-1">Name: "{ocrDetectedName}"</span>}
+                          {ocrDetectedPhone && <span className="ml-1">| Phone: "{ocrDetectedPhone}"</span>}
+                          <br />
+                          <span className="text-xs">Please verify and correct if needed. OCR is not mandatory.</span>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Customer Details Form */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Customer Name *</Label>
@@ -432,21 +576,15 @@ export default function SaleCouponPage() {
                       </select>
                     </div>
 
-                    {photo && (
-                      <div className="space-y-2">
-                        <Label>Captured Photo</Label>
-                        <img src={photo} alt="Coupon" className="w-full max-w-md rounded-lg border" />
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
+                    {/* Submit Buttons */}
+                    <div className="flex gap-2 pt-4">
                       <Button variant="outline" onClick={resetSale}>
                         Start Over
                       </Button>
                       <Button 
                         onClick={submitSale}
                         disabled={submitting || !customerName || !customerPhone || !selectedBranch}
-                        className="flex-1"
+                        className="flex-1 bg-green-600 hover:bg-green-700"
                         data-testid="submit-sale-btn"
                       >
                         {submitting ? (
@@ -457,6 +595,10 @@ export default function SaleCouponPage() {
                         Complete Sale (₹{validatedCoupon.price})
                       </Button>
                     </div>
+
+                    <p className="text-xs text-zinc-500 text-center">
+                      OCR verification is optional. Sale will proceed with the details you entered.
+                    </p>
                   </div>
                 )}
               </CardContent>
