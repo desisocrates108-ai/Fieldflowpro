@@ -18,17 +18,22 @@ import {
   Settings,
   User,
   Package,
-  Receipt
+  Receipt,
+  UserCog
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import NetworkStatus from './NetworkStatus';
+
+// Theme color
+const THEME_COLOR = '#ED1C24';
 
 // Navigation items for different roles
 const getNavItems = (role) => {
   const items = {
     admin: [
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+      { path: '/admin/login-management', icon: UserCog, label: 'Login Management' },
       { path: '/admin/workers', icon: Users, label: 'Workers' },
       { path: '/admin/campaigns', icon: Package, label: 'Campaigns' },
       { path: '/admin/ledger', icon: Receipt, label: 'Ledger' },
