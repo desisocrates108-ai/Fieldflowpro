@@ -85,23 +85,23 @@ async def create_campaign(
         start_prefix, start_num = parse_coupon_code(data.start_code)
         end_prefix, end_num = parse_coupon_code(data.end_code)
     
-    # Validate parsing
-    if start_prefix is None or end_prefix is None:
-        raise HTTPException(status_code=400, detail="Invalid coupon code format. Use format like 'UT100'")
-    
-    # Validate same prefix
-    if start_prefix != end_prefix:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Prefix mismatch: start='{start_prefix}' vs end='{end_prefix}'. Both codes must have the same prefix."
-        )
-    
-    # Validate end > start
-    if end_num <= start_num:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"End number ({end_num}) must be greater than start number ({start_num})"
-        )
+        # Validate parsing
+        if start_prefix is None or end_prefix is None:
+            raise HTTPException(status_code=400, detail="Invalid coupon code format. Use format like 'UT100'")
+        
+        # Validate same prefix
+        if start_prefix != end_prefix:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Prefix mismatch: start='{start_prefix}' vs end='{end_prefix}'. Both codes must have the same prefix."
+            )
+        
+        # Validate end > start
+        if end_num <= start_num:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"End number ({end_num}) must be greater than start number ({start_num})"
+            )
     
     prefix = start_prefix
     total_count = end_num - start_num  # UT100-UT400 = 300 coupons (100,101,...,399)
