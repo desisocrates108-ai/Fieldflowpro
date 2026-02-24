@@ -123,7 +123,7 @@
 }
 
 .bottom-nav-item-active {
-    @apply text-blue-600;
+    color: #ED1C24;
 }
 
 /* Map marker */
