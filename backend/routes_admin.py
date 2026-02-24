@@ -782,3 +782,133 @@ async def get_spoofing_alerts(
         results.append(a)
     
     return results
+
+
+# ========== API Key Management ==========
+
+import secrets
+import hashlib
+from pydantic import BaseModel
+
+class ApiKeyCreate(BaseModel):
+    service_name: str
+    description: Optional[str] = None
+
+
+class ApiKeyResponse(BaseModel):
+    id: str
+    service_name: str
+    description: Optional[str]
+    key_prefix: str
+    is_active: bool
+    created_at: str
+    last_used_at: Optional[str]
+
+
+@router.post("/api-keys")
+async def create_api_key(
+    data: ApiKeyCreate,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Generate a new API key for external integrations"""
+    import uuid
+    
+    # Generate a secure API key
+    raw_key = f"ffp_{secrets.token_urlsafe(32)}"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    key_prefix = raw_key[:12]
+    
+    key_doc = {
+        "id": str(uuid.uuid4()),
+        "service_name": data.service_name,
+        "description": data.description,
+        "key_hash": key_hash,
+        "key_prefix": key_prefix,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "last_used_at": None,
+        "created_by": current_user["sub"]
+    }
+    
+    await db.api_keys.insert_one(key_doc)
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="API_KEY_CREATED",
+        entity="api_key",
+        entity_id=key_doc["id"],
+        metadata={"service_name": data.service_name},
+        request=request
+    )
+    
+    # Return the raw key ONLY ONCE
+    return {
+        "id": key_doc["id"],
+        "service_name": key_doc["service_name"],
+        "api_key": raw_key,
+        "message": "Store this key securely. It cannot be retrieved later."
+    }
+
+
+@router.get("/api-keys", response_model=List[ApiKeyResponse])
+async def get_api_keys(
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get all API keys (without the actual key values)"""
+    keys = await db.api_keys.find({}, {"_id": 0, "key_hash": 0}).sort("created_at", -1).to_list(100)
+    return keys
+
+
+@router.post("/api-keys/{key_id}/toggle")
+async def toggle_api_key(
+    key_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Activate or deactivate an API key"""
+    key = await db.api_keys.find_one({"id": key_id}, {"_id": 0})
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    new_status = not key.get("is_active", True)
+    await db.api_keys.update_one({"id": key_id}, {"$set": {"is_active": new_status}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="API_KEY_TOGGLED",
+        entity="api_key",
+        entity_id=key_id,
+        metadata={"service_name": key["service_name"], "is_active": new_status},
+        request=request
+    )
+    
+    return {"message": f"API key {'activated' if new_status else 'deactivated'}"}
+
+
+@router.delete("/api-keys/{key_id}")
+async def delete_api_key(
+    key_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Permanently delete an API key"""
+    key = await db.api_keys.find_one({"id": key_id}, {"_id": 0})
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    await db.api_keys.delete_one({"id": key_id})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="API_KEY_DELETED",
+        entity="api_key",
+        entity_id=key_id,
+        metadata={"service_name": key["service_name"]},
+        request=request
+    )
+    
+    return {"message": "API key deleted"}
