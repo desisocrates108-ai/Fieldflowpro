@@ -105,7 +105,6 @@ function AppRoutes() {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
       <Route path="/redeem" element={<RedeemCouponPage />} />
       
       {/* Root Redirect */}
