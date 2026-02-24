@@ -912,3 +912,90 @@ async def delete_api_key(
     )
     
     return {"message": "API key deleted"}
+
+
+# ========== Data Cleanup ==========
+
+@router.post("/cleanup-dummy-data")
+async def cleanup_dummy_data(
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    Remove all dummy/test data from the database.
+    KEEPS: users collection (all user accounts)
+    REMOVES: campaigns, coupons, sales, ledgers, expenses, fraud alerts, etc.
+    """
+    collections_to_clear = [
+        "campaigns",
+        "campaign_coupons",
+        "encashments",
+        "worker_ledgers",
+        "ledger_transactions",
+        "expenses",
+        "fraud_alerts",
+        "worker_performance_scores",
+        "inactivity_logs",
+        "location_spoofing_alerts",
+        "cre_call_logs",
+        "attendance_records",
+    ]
+    
+    results = {}
+    for collection in collections_to_clear:
+        try:
+            count = await db[collection].count_documents({})
+            if count > 0:
+                await db[collection].delete_many({})
+                results[collection] = f"Deleted {count} documents"
+            else:
+                results[collection] = "Already empty"
+        except Exception as e:
+            results[collection] = f"Error: {str(e)}"
+    
+    # Keep users, branches, areas, and api_keys
+    kept = {
+        "users": await db.users.count_documents({}),
+        "branches": await db.branches.count_documents({}),
+        "areas": await db.areas.count_documents({}),
+        "api_keys": await db.api_keys.count_documents({})
+    }
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="DUMMY_DATA_CLEANUP",
+        entity="system",
+        entity_id="cleanup",
+        metadata={"cleared": results, "kept": kept},
+        request=request
+    )
+    
+    return {
+        "message": "Dummy data cleanup completed",
+        "cleared": results,
+        "kept": kept
+    }
+
+
+@router.get("/database-stats")
+async def get_database_stats(
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get counts of all collections in the database"""
+    collections = [
+        "users", "campaigns", "campaign_coupons", "branches", "areas",
+        "encashments", "worker_ledgers", "ledger_transactions", "expenses",
+        "fraud_alerts", "worker_performance_scores", "inactivity_logs",
+        "api_keys", "audit_logs", "cre_call_logs", "attendance_records"
+    ]
+    
+    stats = {}
+    for collection in collections:
+        try:
+            count = await db[collection].count_documents({})
+            stats[collection] = count
+        except:
+            stats[collection] = 0
+    
+    return stats
