@@ -96,7 +96,7 @@
     @apply focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none;
 }
 
-/* Navigation link active state */
+/* Navigation link active state - Theme color: #ED1C24 */
 .nav-link {
     @apply flex items-center gap-3 px-4 py-3 rounded-lg text-zinc-600 font-medium;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -107,7 +107,8 @@
 }
 
 .nav-link-active {
-    @apply bg-blue-50 text-blue-600;
+    background-color: rgba(237, 28, 36, 0.1);
+    color: #ED1C24;
 }
 
 /* Mobile bottom navigation */
