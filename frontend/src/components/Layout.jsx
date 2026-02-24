@@ -157,10 +157,10 @@ export const Layout = ({ children }) => {
               <Menu className="h-5 w-5" />
             </button>
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: THEME_COLOR }}>
                 <MapPin className="h-5 w-5 text-white" />
               </div>
-              <span className="font-bold text-lg tracking-tight font-['Barlow_Condensed']">
+              <span className="font-bold text-lg tracking-tight font-['Barlow_Condensed']" style={{ color: THEME_COLOR }}>
                 FieldFlow Pro
               </span>
             </Link>
