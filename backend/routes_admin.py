@@ -1,9 +1,12 @@
 """
-Admin Worker Control & Inactivity Tracking Routes
+Admin User Management, Worker Control & Inactivity Tracking Routes
+- All user creation is handled by Admin (no public signup)
+- Supports Worker, Branch, CRE roles
 """
 from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
+from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, Literal
 import asyncio
 
 from models import (
@@ -25,7 +28,311 @@ def init_routes(database, audit_func):
     create_audit_log = audit_func
 
 
-# ========== Worker Management ==========
+# ========== User Creation Models ==========
+class AdminUserCreate(BaseModel):
+    """Admin creates any user type"""
+    email: EmailStr
+    password: str
+    name: str
+    phone: Optional[str] = None
+    role: Literal["worker", "branch", "cre"]
+    area_id: Optional[str] = None
+    branch_id: Optional[str] = None
+
+
+class AdminUserUpdate(BaseModel):
+    """Admin updates any user"""
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    area_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+# ========== Login Management - All User Types ==========
+
+@router.post("/users", response_model=UserResponse)
+async def create_user(
+    data: AdminUserCreate,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    Admin creates a new user (Worker, Branch, or CRE).
+    This is the ONLY way to create users - no public signup.
+    """
+    # Check email exists
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Validate password
+    if len(data.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Create user
+    user = User(
+        email=data.email,
+        name=data.name,
+        phone=data.phone,
+        role=data.role,
+        area_id=data.area_id,
+        branch_id=data.branch_id
+    )
+    
+    user_dict = user.model_dump()
+    user_dict["password_hash"] = get_password_hash(data.password)
+    user_dict["created_at"] = user_dict["created_at"].isoformat()
+    
+    await db.users.insert_one(user_dict)
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_CREATED",
+        entity="user",
+        entity_id=user.id,
+        metadata={"email": data.email, "name": data.name, "role": data.role},
+        request=request
+    )
+    
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        phone=user.phone,
+        role=user.role,
+        is_active=user.is_active,
+        area_id=user.area_id,
+        branch_id=user.branch_id,
+        coupon_possession_count=user.coupon_possession_count
+    )
+
+
+@router.get("/users", response_model=List[UserResponse])
+async def get_all_users(
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get all users, optionally filtered by role and status"""
+    query = {"role": {"$ne": "admin"}}  # Don't list admin users
+    
+    if role:
+        query["role"] = role
+    if is_active is not None:
+        query["is_active"] = is_active
+    
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(500)
+    return users
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: str,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get single user details"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.patch("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: str,
+    data: AdminUserUpdate,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Update any user's details"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent modifying admin users
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Cannot modify admin users")
+    
+    update_data = {}
+    if data.name is not None:
+        update_data["name"] = data.name
+    if data.phone is not None:
+        update_data["phone"] = data.phone
+    if data.area_id is not None:
+        update_data["area_id"] = data.area_id
+    if data.branch_id is not None:
+        update_data["branch_id"] = data.branch_id
+    if data.is_active is not None:
+        update_data["is_active"] = data.is_active
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No update data provided")
+    
+    await db.users.update_one({"id": user_id}, {"$set": update_data})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_UPDATED",
+        entity="user",
+        entity_id=user_id,
+        metadata=update_data,
+        request=request
+    )
+    
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
+
+
+@router.post("/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: str,
+    data: PasswordResetRequest,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Reset any user's password"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent modifying admin users
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Cannot modify admin users")
+    
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    new_hash = get_password_hash(data.new_password)
+    await db.users.update_one({"id": user_id}, {"$set": {"password_hash": new_hash}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="PASSWORD_RESET",
+        entity="user",
+        entity_id=user_id,
+        metadata={"email": user["email"], "role": user["role"]},
+        request=request
+    )
+    
+    return {"message": "Password reset successfully"}
+
+
+@router.post("/users/{user_id}/activate")
+async def activate_user(
+    user_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Activate a user account"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one({"id": user_id}, {"$set": {"is_active": True}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_UPDATED",
+        entity="user",
+        entity_id=user_id,
+        metadata={"action": "activated", "email": user["email"]},
+        request=request
+    )
+    
+    return {"message": "User activated successfully"}
+
+
+@router.post("/users/{user_id}/deactivate")
+async def deactivate_user(
+    user_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Deactivate a user account"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent deactivating admin users
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Cannot deactivate admin users")
+    
+    await db.users.update_one({"id": user_id}, {"$set": {"is_active": False}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_DISABLED",
+        entity="user",
+        entity_id=user_id,
+        metadata={"email": user["email"], "role": user["role"]},
+        request=request
+    )
+    
+    return {"message": "User deactivated successfully"}
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Delete a user (only if no dependencies)"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent deleting admin users
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Cannot delete admin users")
+    
+    # Check dependencies based on role
+    role = user.get("role")
+    
+    if role == "worker":
+        sales_count = await db.campaign_coupons.count_documents({"sold_by_worker_id": user_id})
+        if sales_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete worker with {sales_count} sales. Deactivate instead."
+            )
+    elif role == "branch":
+        encash_count = await db.encashments.count_documents({"encashed_by": user_id})
+        if encash_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete branch user with {encash_count} encashments. Deactivate instead."
+            )
+    elif role == "cre":
+        call_count = await db.cre_call_logs.count_documents({"cre_id": user_id})
+        if call_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete CRE with {call_count} call logs. Deactivate instead."
+            )
+    
+    await db.users.delete_one({"id": user_id})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_DELETED",
+        entity="user",
+        entity_id=user_id,
+        metadata={"email": user["email"], "role": role},
+        request=request
+    )
+    
+    return {"message": "User deleted successfully"}
+
+
+# ========== Legacy Worker Management (kept for backward compatibility) ==========
 
 @router.post("/workers", response_model=UserResponse)
 async def create_worker(
@@ -33,7 +340,7 @@ async def create_worker(
     request: Request,
     current_user: dict = Depends(require_roles("admin"))
 ):
-    """Admin creates a new worker"""
+    """Admin creates a new worker (legacy endpoint - use /api/admin/users instead)"""
     # Check email exists
     existing = await db.users.find_one({"email": data.email})
     if existing:
