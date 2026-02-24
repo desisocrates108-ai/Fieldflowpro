@@ -121,17 +121,6 @@ async def create_campaign(
         first_code = f"{prefix}{str(start_num).zfill(len(str(end_num)))}"
         last_code = f"{prefix}{str(end_num - 1).zfill(len(str(end_num)))}"
         
-        # Check if any code in range already exists
-        overlap_check = await db.campaign_coupons.find_one({
-            "code": {"$regex": f"^{prefix}\\d+$"},
-            "$expr": {
-                "$and": [
-                    {"$gte": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, start_num]},
-                    {"$lt": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, end_num]}
-                ]
-            }
-        })
-        
         # Simpler overlap check - check first and last codes
         existing_first = await db.campaign_coupons.find_one({"code": first_code})
         existing_last = await db.campaign_coupons.find_one({"code": last_code})
