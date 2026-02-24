@@ -6,7 +6,6 @@ import "./App.css";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
 import RedeemCouponPage from "./pages/RedeemCoupon";
 
 // Admin Pages
