@@ -188,54 +188,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
         await websocket.close(code=1008)
 
 # ========== Auth Routes ==========
-@api_router.post("/auth/register", response_model=TokenResponse)
-async def register(user_data: UserCreate, request: Request):
-    existing = await db.users.find_one({"email": user_data.email})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    user = User(
-        email=user_data.email,
-        name=user_data.name,
-        phone=user_data.phone,
-        role=user_data.role,
-        coupon_possession_count=0
-    )
-    user_dict = user.model_dump()
-    user_dict["password_hash"] = get_password_hash(user_data.password)
-    user_dict["created_at"] = user_dict["created_at"].isoformat()
-    
-    await db.users.insert_one(user_dict)
-    
-    await create_audit_log(
-        user_id=user.id,
-        user_role=user.role,
-        action="USER_CREATED",
-        entity="user",
-        entity_id=user.id,
-        metadata={"email": user.email, "role": user.role},
-        request=request
-    )
-    
-    token_data = {"sub": user.id, "email": user.email, "role": user.role, "name": user.name}
-    access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token(token_data)
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse(
-            id=user.id,
-            email=user.email,
-            name=user.name,
-            phone=user.phone,
-            role=user.role,
-            is_active=user.is_active,
-            area_id=user.area_id,
-            branch_id=user.branch_id,
-            coupon_possession_count=user.coupon_possession_count
-        )
-    )
+# PUBLIC SIGNUP REMOVED - Only Admin can create users via /api/admin/users endpoint
 
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, request: Request):
