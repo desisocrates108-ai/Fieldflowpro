@@ -142,62 +142,62 @@ async def create_campaign(
             )
         
         digit_padding = len(str(end_num - 1))  # Use the max number's length
-    
-    # Create campaign
-    campaign = Campaign(
-        name=data.name,
-        price=data.price,
-        total_count=total_count,
-        prefix=prefix,
-        digit_padding=digit_padding,
-        created_by=current_user["sub"]
-    )
-    
-    campaign_doc = campaign.model_dump()
-    campaign_doc["created_at"] = campaign_doc["created_at"].isoformat()
-    campaign_doc["start_code"] = data.start_code.upper()
-    campaign_doc["end_code"] = data.end_code.upper()
-    campaign_doc["start_number"] = start_num
-    campaign_doc["end_number"] = end_num
-    await db.campaigns.insert_one(campaign_doc)
-    
-    # Generate all coupon codes (start to end-1, since total = end - start)
-    coupon_docs = []
-    for serial in range(start_num, end_num):  # end_num is exclusive
-        code = generate_coupon_code(prefix, serial, digit_padding)
-        coupon = CampaignCoupon(
-            campaign_id=campaign.id,
-            code=code,
-            serial_number=serial
+        
+        # Create campaign
+        campaign = Campaign(
+            name=data.name,
+            price=data.price,
+            total_count=total_count,
+            prefix=prefix,
+            digit_padding=digit_padding,
+            created_by=current_user["sub"]
         )
-        doc = coupon.model_dump()
-        doc["created_at"] = doc["created_at"].isoformat()
-        coupon_docs.append(doc)
-    
-    # Bulk insert coupons
-    if coupon_docs:
-        await db.campaign_coupons.insert_many(coupon_docs)
-    
-    # Audit log
-    await create_audit_log(
-        user_id=current_user["sub"],
-        user_role=current_user["role"],
-        action="CAMPAIGN_CREATED",
-        entity="campaign",
-        entity_id=campaign.id,
-        metadata={
-            "name": data.name,
-            "prefix": prefix,
-            "start_code": data.start_code.upper(),
-            "end_code": data.end_code.upper(),
-            "total_count": total_count,
-            "price": data.price
-        },
-        request=request
-    )
-    
-    return CampaignResponse(
-        id=campaign.id,
+        
+        campaign_doc = campaign.model_dump()
+        campaign_doc["created_at"] = campaign_doc["created_at"].isoformat()
+        campaign_doc["start_code"] = data.start_code.upper()
+        campaign_doc["end_code"] = data.end_code.upper()
+        campaign_doc["start_number"] = start_num
+        campaign_doc["end_number"] = end_num
+        await db.campaigns.insert_one(campaign_doc)
+        
+        # Generate all coupon codes (start to end-1, since total = end - start)
+        coupon_docs = []
+        for serial in range(start_num, end_num):  # end_num is exclusive
+            code = generate_coupon_code(prefix, serial, digit_padding)
+            coupon = CampaignCoupon(
+                campaign_id=campaign.id,
+                code=code,
+                serial_number=serial
+            )
+            doc = coupon.model_dump()
+            doc["created_at"] = doc["created_at"].isoformat()
+            coupon_docs.append(doc)
+        
+        # Bulk insert coupons
+        if coupon_docs:
+            await db.campaign_coupons.insert_many(coupon_docs)
+        
+        # Audit log
+        await create_audit_log(
+            user_id=current_user["sub"],
+            user_role=current_user["role"],
+            action="CAMPAIGN_CREATED",
+            entity="campaign",
+            entity_id=campaign.id,
+            metadata={
+                "name": data.name,
+                "prefix": prefix,
+                "start_code": data.start_code.upper(),
+                "end_code": data.end_code.upper(),
+                "total_count": total_count,
+                "price": data.price
+            },
+            request=request
+        )
+        
+        return CampaignResponse(
+            id=campaign.id,
         name=campaign.name,
         price=campaign.price,
         total_count=campaign.total_count,
