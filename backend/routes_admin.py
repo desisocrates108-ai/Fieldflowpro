@@ -995,7 +995,7 @@ async def get_database_stats(
         try:
             count = await db[collection].count_documents({})
             stats[collection] = count
-        except:
+        except Exception:
             stats[collection] = 0
     
     return stats
