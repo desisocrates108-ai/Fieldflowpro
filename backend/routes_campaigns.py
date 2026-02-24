@@ -102,46 +102,46 @@ async def create_campaign(
                 status_code=400, 
                 detail=f"End number ({end_num}) must be greater than start number ({start_num})"
             )
-    
-    prefix = start_prefix
-    total_count = end_num - start_num  # UT100-UT400 = 300 coupons (100,101,...,399)
-    
-    if total_count <= 0:
-        raise HTTPException(status_code=400, detail="Total count must be positive")
-    
-    if total_count > 10000:
-        raise HTTPException(status_code=400, detail="Maximum 10,000 coupons per campaign allowed")
-    
-    # Check for duplicate prefix in active campaigns
-    existing = await db.campaigns.find_one({"prefix": prefix, "status": {"$ne": "COMPLETED"}})
-    if existing:
-        raise HTTPException(status_code=400, detail=f"Campaign with prefix '{prefix}' already exists")
-    
-    # Check for overlapping coupon codes
-    first_code = f"{prefix}{str(start_num).zfill(len(str(end_num)))}"
-    last_code = f"{prefix}{str(end_num - 1).zfill(len(str(end_num)))}"
-    
-    # Check if any code in range already exists
-    overlap_check = await db.campaign_coupons.find_one({
-        "code": {"$regex": f"^{prefix}\\d+$"},
-        "$expr": {
-            "$and": [
-                {"$gte": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, start_num]},
-                {"$lt": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, end_num]}
-            ]
-        }
-    })
-    
-    # Simpler overlap check - check first and last codes
-    existing_first = await db.campaign_coupons.find_one({"code": first_code})
-    existing_last = await db.campaign_coupons.find_one({"code": last_code})
-    if existing_first or existing_last:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Code range overlaps with existing campaign. '{first_code}' or '{last_code}' already exists."
-        )
-    
-    digit_padding = len(str(end_num - 1))  # Use the max number's length
+        
+        prefix = start_prefix
+        total_count = end_num - start_num  # UT100-UT400 = 300 coupons (100,101,...,399)
+        
+        if total_count <= 0:
+            raise HTTPException(status_code=400, detail="Total count must be positive")
+        
+        if total_count > 10000:
+            raise HTTPException(status_code=400, detail="Maximum 10,000 coupons per campaign allowed")
+        
+        # Check for duplicate prefix in active campaigns
+        existing = await db.campaigns.find_one({"prefix": prefix, "status": {"$ne": "COMPLETED"}})
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Campaign with prefix '{prefix}' already exists")
+        
+        # Check for overlapping coupon codes
+        first_code = f"{prefix}{str(start_num).zfill(len(str(end_num)))}"
+        last_code = f"{prefix}{str(end_num - 1).zfill(len(str(end_num)))}"
+        
+        # Check if any code in range already exists
+        overlap_check = await db.campaign_coupons.find_one({
+            "code": {"$regex": f"^{prefix}\\d+$"},
+            "$expr": {
+                "$and": [
+                    {"$gte": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, start_num]},
+                    {"$lt": [{"$toInt": {"$substr": ["$code", len(prefix), -1]}}, end_num]}
+                ]
+            }
+        })
+        
+        # Simpler overlap check - check first and last codes
+        existing_first = await db.campaign_coupons.find_one({"code": first_code})
+        existing_last = await db.campaign_coupons.find_one({"code": last_code})
+        if existing_first or existing_last:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Code range overlaps with existing campaign. '{first_code}' or '{last_code}' already exists."
+            )
+        
+        digit_padding = len(str(end_num - 1))  # Use the max number's length
     
     # Create campaign
     campaign = Campaign(
