@@ -209,6 +209,17 @@ async def create_campaign(
         created_by=campaign.created_by,
         created_at=campaign.created_at
     )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CAMPAIGN CREATION ERROR: {str(e)}")
+        logger.error(traceback.format_exc())
+        print(f"CAMPAIGN CREATION ERROR: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to create campaign: {str(e)}"
+        )
 
 
 @router.get("", response_model=List[CampaignResponse])
