@@ -184,6 +184,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/api-keys"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ApiKeysPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Worker Routes */}
       <Route
