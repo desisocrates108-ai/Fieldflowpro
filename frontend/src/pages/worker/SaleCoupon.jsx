@@ -592,7 +592,7 @@ export default function SaleCouponPage() {
                         ) : (
                           <CheckCircle className="h-4 w-4 mr-2" />
                         )}
-                        Complete Sale (₹{validatedCoupon.price})
+                        Complete Sale (₹{validatedCoupon.campaign_price || validatedCoupon.price})
                       </Button>
                     </div>
 
