@@ -13,11 +13,12 @@ import { createWorker } from 'tesseract.js';
 import { 
   Ticket, User, Phone, Camera, MapPin, Building2,
   Loader2, CheckCircle, AlertTriangle, Search,
-  RefreshCcw, History, Eye, ScanLine
+  RefreshCcw, History, Eye, ScanLine, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+const THEME_COLOR = '#ED1C24';
 
 // OCR is optional - set to false to disable OCR completely
 const USE_OCR = true;
@@ -25,19 +26,30 @@ const USE_OCR = true;
 export default function SaleCouponPage() {
   const [activeTab, setActiveTab] = useState('sale');
   
-  // Sale form state
+  // 4-Step Sale Process
   const [step, setStep] = useState(1);
+  const totalSteps = 4;
+  
+  // Step 1: Coupon Code
   const [couponCode, setCouponCode] = useState('');
   const [validating, setValidating] = useState(false);
   const [validatedCoupon, setValidatedCoupon] = useState(null);
+  
+  // Step 2: Photo (optional)
+  const [photo, setPhoto] = useState(null);
+  
+  // Step 3: Customer Details
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  
+  // Step 4: Branch & Submit
   const [selectedBranch, setSelectedBranch] = useState('');
   const [branches, setBranches] = useState([]);
-  const [photo, setPhoto] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // GPS Location (required)
   const [location, setLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   
   // OCR state (optional - non-blocking)
   const [ocrRunning, setOcrRunning] = useState(false);
@@ -162,18 +174,15 @@ export default function SaleCouponPage() {
       // Try to extract name and phone from OCR text
       const lines = data.text.split('\n').filter(l => l.trim());
       
-      // Simple extraction - look for patterns
       let detectedName = '';
       let detectedPhone = '';
       
       for (const line of lines) {
-        // Phone pattern
         const phoneMatch = line.match(/(\d{10})/);
         if (phoneMatch && !detectedPhone) {
           detectedPhone = phoneMatch[1];
         }
         
-        // Name pattern (lines with mostly letters)
         if (!detectedName && line.length > 3 && /^[a-zA-Z\s]+$/.test(line.trim())) {
           detectedName = line.trim();
         }
@@ -182,7 +191,6 @@ export default function SaleCouponPage() {
       setOcrDetectedName(detectedName);
       setOcrDetectedPhone(detectedPhone);
       
-      // Auto-fill if fields are empty (helpful, not required)
       if (detectedName && !customerName) {
         setCustomerName(detectedName);
       }
@@ -195,7 +203,6 @@ export default function SaleCouponPage() {
       }
     } catch (error) {
       console.error('OCR failed:', error);
-      // OCR failure is NOT a blocker - sale can proceed
     } finally {
       setOcrRunning(false);
     }
@@ -241,13 +248,11 @@ export default function SaleCouponPage() {
         latitude: location.latitude,
         longitude: location.longitude,
         gps_accuracy: location.accuracy,
-        // OCR data is optional - sent if available
         ocr_detected_name: ocrDetectedName || null,
         ocr_detected_phone: ocrDetectedPhone || null,
         ocr_confidence: ocrConfidence || null
       };
       
-      // Add photo if captured (optional)
       if (photo) {
         payload.image_base64 = photo;
       }
@@ -266,12 +271,10 @@ export default function SaleCouponPage() {
       if (response.ok) {
         toast.success(data.message || 'Coupon sold successfully!');
         
-        // Show OCR mismatch warning if any (informational only)
         if (data.ocr_mismatch_warning) {
           toast.warning(data.ocr_mismatch_warning, { duration: 5000 });
         }
         
-        // Reset form
         resetSale();
       } else {
         toast.error(data.detail || 'Failed to complete sale');
@@ -332,13 +335,23 @@ export default function SaleCouponPage() {
     });
   };
 
+  const getStepTitle = () => {
+    switch(step) {
+      case 1: return 'Step 1: Enter Coupon Code';
+      case 2: return 'Step 2: Capture Photo (Optional)';
+      case 3: return 'Step 3: Customer Details';
+      case 4: return 'Step 4: Select Branch & Confirm';
+      default: return '';
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6" data-testid="worker-sale-page">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
+            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight" style={{ color: THEME_COLOR }}>
               Sale Coupon
             </h1>
             <p className="text-zinc-500 mt-1">Record customer coupon sales</p>
@@ -347,11 +360,11 @@ export default function SaleCouponPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="sale">
+            <TabsTrigger value="sale" className="data-[state=active]:text-[#ED1C24]">
               <Ticket className="h-4 w-4 mr-2" />
               New Sale
             </TabsTrigger>
-            <TabsTrigger value="history">
+            <TabsTrigger value="history" className="data-[state=active]:text-[#ED1C24]">
               <History className="h-4 w-4 mr-2" />
               My Sales
             </TabsTrigger>
@@ -361,50 +374,105 @@ export default function SaleCouponPage() {
           <TabsContent value="sale" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Ticket className="h-5 w-5 text-blue-600" />
-                  {step === 1 ? 'Step 1: Coupon Details' : 'Step 2: Customer Details & Submit'}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Ticket className="h-5 w-5" style={{ color: THEME_COLOR }} />
+                    {getStepTitle()}
+                  </CardTitle>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4].map(s => (
+                      <div 
+                        key={s}
+                        className={`w-8 h-2 rounded-full transition-colors ${
+                          s <= step ? 'bg-[#ED1C24]' : 'bg-zinc-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Step 1: Coupon Code + Photo */}
+                
+                {/* GPS Status - Always visible */}
+                <div className="flex items-center gap-2 p-3 bg-zinc-50 rounded-lg border">
+                  <MapPin className={`h-4 w-4 ${location ? 'text-green-600' : 'text-zinc-400'}`} />
+                  {location ? (
+                    <span className="text-sm">
+                      GPS: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} 
+                      <span className={`ml-2 ${location.accuracy <= 100 ? 'text-green-600' : 'text-yellow-600'}`}>
+                        (±{Math.round(location.accuracy)}m)
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-zinc-500">Getting GPS location...</span>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={getCurrentLocation}>
+                    <RefreshCcw className="h-3 w-3" />
+                  </Button>
+                </div>
+                
+                {locationError && (
+                  <Alert className="border-yellow-500 bg-yellow-50">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-800">{locationError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* ===== STEP 1: Coupon Code ===== */}
                 {step === 1 && (
                   <div className="space-y-4">
-                    {/* Coupon Code Input */}
                     <div className="space-y-2">
-                      <Label>Coupon Code *</Label>
+                      <Label className="text-base font-semibold">Coupon Code *</Label>
                       <div className="flex gap-2">
                         <Input
                           placeholder="e.g., UT100"
                           value={couponCode}
                           onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                          className="font-mono text-lg"
+                          className="font-mono text-lg h-12"
                           data-testid="coupon-code-input"
                         />
                         <Button 
                           onClick={validateCouponCode}
                           disabled={validating || !couponCode.trim()}
+                          className="h-12 px-6"
+                          style={{ backgroundColor: THEME_COLOR }}
                           data-testid="validate-coupon-btn"
                         >
-                          {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                          Validate
+                          {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                          {validating ? 'Validating...' : 'Validate'}
                         </Button>
                       </div>
+                      <p className="text-sm text-zinc-500">Enter the coupon code printed on the coupon</p>
                     </div>
+                  </div>
+                )}
 
-                    {/* Camera for Photo Capture */}
+                {/* ===== STEP 2: Photo Capture (Optional) ===== */}
+                {step === 2 && (
+                  <div className="space-y-4">
+                    {/* Show validated coupon */}
+                    <Alert className="border-green-500 bg-green-50">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800">
+                        <strong>{validatedCoupon?.campaign_name}</strong> - ₹{validatedCoupon?.campaign_price || validatedCoupon?.price}
+                        <span className="ml-2 font-mono">({couponCode})</span>
+                      </AlertDescription>
+                    </Alert>
+
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
+                      <Label className="text-base font-semibold flex items-center gap-2">
                         <Camera className="h-4 w-4" />
-                        Coupon Photo (Optional - enables OCR)
+                        Capture Coupon Photo (Optional)
                       </Label>
+                      <p className="text-sm text-zinc-500">Taking a photo enables OCR to auto-fill customer details. You can skip this step.</p>
+                      
                       <div className="border rounded-lg overflow-hidden bg-zinc-100">
                         {!photo ? (
                           <div className="relative">
                             <Webcam
                               ref={webcamRef}
                               screenshotFormat="image/jpeg"
-                              className="w-full h-52 object-cover"
+                              className="w-full h-56 object-cover"
                               videoConstraints={{
                                 facingMode: 'environment',
                                 width: 640,
@@ -413,6 +481,7 @@ export default function SaleCouponPage() {
                             />
                             <Button 
                               className="absolute bottom-3 left-1/2 -translate-x-1/2"
+                              style={{ backgroundColor: THEME_COLOR }}
                               onClick={capturePhoto}
                             >
                               <Camera className="h-4 w-4 mr-2" />
@@ -421,7 +490,7 @@ export default function SaleCouponPage() {
                           </div>
                         ) : (
                           <div className="relative">
-                            <img src={photo} alt="Captured" className="w-full h-52 object-cover" />
+                            <img src={photo} alt="Captured" className="w-full h-56 object-cover" />
                             <div className="absolute top-2 right-2">
                               {ocrRunning && (
                                 <Badge className="bg-blue-600">
@@ -451,12 +520,9 @@ export default function SaleCouponPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500">
-                        Photo helps with OCR auto-fill but is not required for sale.
-                      </p>
                     </div>
 
-                    {/* OCR Results (if available) */}
+                    {/* OCR Results */}
                     {ocrResult && (ocrDetectedName || ocrDetectedPhone) && (
                       <Alert className="border-blue-500 bg-blue-50">
                         <Eye className="h-4 w-4 text-blue-600" />
@@ -464,141 +530,155 @@ export default function SaleCouponPage() {
                           <strong>OCR Detected:</strong>
                           {ocrDetectedName && <span className="ml-2">Name: {ocrDetectedName}</span>}
                           {ocrDetectedPhone && <span className="ml-2">| Phone: {ocrDetectedPhone}</span>}
-                          <span className="ml-2 text-xs">(Confidence: {ocrConfidence.toFixed(0)}%)</span>
                         </AlertDescription>
                       </Alert>
                     )}
 
-                    {/* GPS Status */}
-                    <div className="flex items-center gap-2 p-3 bg-zinc-50 rounded-lg">
-                      <MapPin className={`h-4 w-4 ${location ? 'text-green-600' : 'text-zinc-400'}`} />
-                      {location ? (
-                        <span className="text-sm">
-                          GPS: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} 
-                          <span className={`ml-2 ${location.accuracy <= 100 ? 'text-green-600' : 'text-yellow-600'}`}>
-                            (±{Math.round(location.accuracy)}m)
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-sm text-zinc-500">Getting GPS location...</span>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={getCurrentLocation}>
-                        <RefreshCcw className="h-3 w-3" />
+                    {/* Navigation */}
+                    <div className="flex gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setStep(1)}>
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Back
+                      </Button>
+                      <Button 
+                        onClick={() => setStep(3)}
+                        className="flex-1"
+                        style={{ backgroundColor: THEME_COLOR }}
+                      >
+                        {photo ? 'Continue with Photo' : 'Skip & Continue'}
+                        <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
                     </div>
-                    
-                    {locationError && (
-                      <Alert className="border-yellow-500 bg-yellow-50">
-                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                        <AlertDescription className="text-yellow-800">{locationError}</AlertDescription>
-                      </Alert>
-                    )}
                   </div>
                 )}
 
-                {/* Step 2: Customer Details & Submit */}
-                {step === 2 && validatedCoupon && (
+                {/* ===== STEP 3: Customer Details ===== */}
+                {step === 3 && (
                   <div className="space-y-4">
-                    {/* Validated Coupon Info */}
+                    {/* Show validated coupon */}
                     <Alert className="border-green-500 bg-green-50">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <AlertDescription className="text-green-800">
-                        <strong>{validatedCoupon.campaign_name}</strong> - ₹{validatedCoupon.campaign_price || validatedCoupon.price}
+                        <strong>{validatedCoupon?.campaign_name}</strong> - ₹{validatedCoupon?.campaign_price || validatedCoupon?.price}
                         <span className="ml-2 font-mono">({couponCode})</span>
                       </AlertDescription>
                     </Alert>
 
-                    {/* Show captured photo if any */}
-                    {photo && (
-                      <div className="relative">
-                        <img src={photo} alt="Coupon" className="w-full max-w-md rounded-lg border" />
-                        {ocrRunning && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
-                            <div className="text-white text-center">
-                              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                              <p>Scanning with OCR...</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* OCR comparison (informational) */}
-                    {ocrResult && (ocrDetectedName || ocrDetectedPhone) && (
+                    {/* OCR suggestion */}
+                    {(ocrDetectedName || ocrDetectedPhone) && (
                       <Alert className="border-blue-200 bg-blue-50">
                         <Eye className="h-4 w-4 text-blue-600" />
                         <AlertDescription className="text-blue-700 text-sm">
                           <strong>OCR Suggestion:</strong> 
                           {ocrDetectedName && <span className="ml-1">Name: "{ocrDetectedName}"</span>}
                           {ocrDetectedPhone && <span className="ml-1">| Phone: "{ocrDetectedPhone}"</span>}
-                          <br />
-                          <span className="text-xs">Please verify and correct if needed. OCR is not mandatory.</span>
                         </AlertDescription>
                       </Alert>
                     )}
 
-                    {/* Customer Details Form */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Customer Name *</Label>
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          Customer Name *
+                        </Label>
                         <Input
-                          placeholder="Enter customer name"
+                          placeholder="Enter customer full name"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
+                          className="h-12"
                           data-testid="customer-name-input"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Mobile Number *</Label>
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          Mobile Number *
+                        </Label>
                         <Input
                           type="tel"
-                          placeholder="10-digit mobile"
+                          placeholder="10-digit mobile number"
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                           maxLength={10}
+                          className="h-12 font-mono"
                           data-testid="customer-phone-input"
                         />
                       </div>
                     </div>
 
+                    {/* Navigation */}
+                    <div className="flex gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setStep(2)}>
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Back
+                      </Button>
+                      <Button 
+                        onClick={() => setStep(4)}
+                        disabled={!customerName.trim() || customerPhone.length < 10}
+                        className="flex-1"
+                        style={{ backgroundColor: THEME_COLOR }}
+                      >
+                        Continue <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ===== STEP 4: Branch Selection & Submit ===== */}
+                {step === 4 && (
+                  <div className="space-y-4">
+                    {/* Summary */}
+                    <div className="p-4 bg-zinc-50 rounded-lg space-y-2">
+                      <h3 className="font-semibold text-sm text-zinc-500 uppercase">Sale Summary</h3>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div><span className="text-zinc-500">Coupon:</span> <strong className="font-mono">{couponCode}</strong></div>
+                        <div><span className="text-zinc-500">Amount:</span> <strong className="text-green-600">₹{validatedCoupon?.campaign_price || validatedCoupon?.price}</strong></div>
+                        <div><span className="text-zinc-500">Customer:</span> <strong>{customerName}</strong></div>
+                        <div><span className="text-zinc-500">Phone:</span> <strong>{customerPhone}</strong></div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label>Select Branch *</Label>
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Select Branch *
+                      </Label>
                       <select
-                        className="w-full h-10 px-3 border rounded-md"
+                        className="w-full h-12 px-3 border rounded-md text-base"
                         value={selectedBranch}
                         onChange={(e) => setSelectedBranch(e.target.value)}
                         data-testid="branch-select"
                       >
-                        <option value="">Select Branch</option>
+                        <option value="">-- Select Branch --</option>
                         {branches.map(branch => (
                           <option key={branch.id} value={branch.id}>{branch.name}</option>
                         ))}
                       </select>
                     </div>
 
-                    {/* Submit Buttons */}
+                    {/* Navigation & Submit */}
                     <div className="flex gap-2 pt-4">
-                      <Button variant="outline" onClick={resetSale}>
-                        Start Over
+                      <Button variant="outline" onClick={() => setStep(3)}>
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Back
                       </Button>
                       <Button 
                         onClick={submitSale}
-                        disabled={submitting || !customerName || !customerPhone || !selectedBranch}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        disabled={submitting || !selectedBranch}
+                        className="flex-1 h-12 text-lg"
+                        style={{ backgroundColor: '#16a34a' }}
                         data-testid="submit-sale-btn"
                       >
                         {submitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
                         ) : (
-                          <CheckCircle className="h-4 w-4 mr-2" />
+                          <CheckCircle className="h-5 w-5 mr-2" />
                         )}
-                        Complete Sale (₹{validatedCoupon.campaign_price || validatedCoupon.price})
+                        Complete Sale (₹{validatedCoupon?.campaign_price || validatedCoupon?.price})
                       </Button>
                     </div>
 
-                    <p className="text-xs text-zinc-500 text-center">
-                      OCR verification is optional. Sale will proceed with the details you entered.
-                    </p>
+                    <Button variant="link" onClick={resetSale} className="w-full text-zinc-500">
+                      Cancel & Start Over
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -610,7 +690,7 @@ export default function SaleCouponPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <History className="h-5 w-5 text-blue-600" />
+                  <History className="h-5 w-5" style={{ color: THEME_COLOR }} />
                   My Sales History
                 </CardTitle>
                 <Button variant="outline" size="sm" onClick={fetchMySales}>
@@ -621,7 +701,7 @@ export default function SaleCouponPage() {
               <CardContent>
                 {salesLoading ? (
                   <div className="flex items-center justify-center h-40">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: THEME_COLOR }} />
                   </div>
                 ) : mySales.length === 0 ? (
                   <div className="text-center py-8 text-zinc-500">
@@ -656,11 +736,11 @@ export default function SaleCouponPage() {
                                 <p className="text-xs text-zinc-500">****{sale.customer_phone_last4}</p>
                               </div>
                             </TableCell>
-                            <TableCell className="font-medium">{sale.worker_name}</TableCell>
+                            <TableCell className="font-medium">{sale.worker_name || '-'}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 <Building2 className="h-3 w-3 text-zinc-400" />
-                                {sale.branch_name}
+                                {sale.branch_name || '-'}
                               </div>
                             </TableCell>
                             <TableCell>{sale.campaign_name}</TableCell>
