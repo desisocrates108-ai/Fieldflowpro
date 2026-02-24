@@ -196,14 +196,16 @@
     @apply text-red-600;
 }
 
-/* Floating action button */
+/* Floating action button - Theme color */
 .fab {
-    @apply fixed right-4 bottom-20 md:bottom-8 w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center;
+    @apply fixed right-4 bottom-20 md:bottom-8 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center;
+    background-color: #ED1C24;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .fab:hover {
     @apply shadow-xl;
+    background-color: #d11920;
     transform: scale(1.05);
 }
 
