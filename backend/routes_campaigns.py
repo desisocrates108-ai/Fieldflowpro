@@ -76,9 +76,14 @@ async def create_campaign(
     Create a new campaign with start-end coupon code range.
     Example: start_code="UT100", end_code="UT400" generates UT100-UT399 (300 coupons)
     """
-    # Parse start and end codes
-    start_prefix, start_num = parse_coupon_code(data.start_code)
-    end_prefix, end_num = parse_coupon_code(data.end_code)
+    import traceback
+    import logging
+    logger = logging.getLogger("campaigns")
+    
+    try:
+        # Parse start and end codes
+        start_prefix, start_num = parse_coupon_code(data.start_code)
+        end_prefix, end_num = parse_coupon_code(data.end_code)
     
     # Validate parsing
     if start_prefix is None or end_prefix is None:
