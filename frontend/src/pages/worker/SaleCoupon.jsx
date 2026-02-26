@@ -636,7 +636,7 @@ export default function SaleCouponPage() {
                   </div>
                 )}
 
-                {/* ===== STEP 4: Branch Selection & Submit ===== */}
+                {/* ===== STEP 4: Branch Selection & Payment Mode ===== */}
                 {step === 4 && (
                   <div className="space-y-4">
                     {/* Summary */}
@@ -668,30 +668,110 @@ export default function SaleCouponPage() {
                       </select>
                     </div>
 
-                    {/* Navigation & Submit */}
+                    {/* Payment Mode Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-base font-semibold flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Payment Mode *
+                      </Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('cash')}
+                          className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                            paymentMode === 'cash' 
+                              ? 'border-[#ED1C24] bg-red-50' 
+                              : 'border-zinc-200 hover:border-zinc-300'
+                          }`}
+                        >
+                          <IndianRupee className={`h-6 w-6 ${paymentMode === 'cash' ? 'text-[#ED1C24]' : 'text-zinc-500'}`} />
+                          <span className={`font-medium ${paymentMode === 'cash' ? 'text-[#ED1C24]' : 'text-zinc-700'}`}>
+                            Cash
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('upi')}
+                          className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                            paymentMode === 'upi' 
+                              ? 'border-[#ED1C24] bg-red-50' 
+                              : 'border-zinc-200 hover:border-zinc-300'
+                          }`}
+                        >
+                          <QrCode className={`h-6 w-6 ${paymentMode === 'upi' ? 'text-[#ED1C24]' : 'text-zinc-500'}`} />
+                          <span className={`font-medium ${paymentMode === 'upi' ? 'text-[#ED1C24]' : 'text-zinc-700'}`}>
+                            UPI / QR
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Navigation & Next */}
                     <div className="flex gap-2 pt-4">
                       <Button variant="outline" onClick={() => setStep(3)}>
                         <ChevronLeft className="h-4 w-4 mr-1" /> Back
                       </Button>
-                      <Button 
-                        onClick={submitSale}
-                        disabled={submitting || !selectedBranch}
-                        className="flex-1 h-12 text-lg"
-                        style={{ backgroundColor: '#16a34a' }}
-                        data-testid="submit-sale-btn"
-                      >
-                        {submitting ? (
-                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                        ) : (
-                          <CheckCircle className="h-5 w-5 mr-2" />
-                        )}
-                        Complete Sale (₹{validatedCoupon?.campaign_price || validatedCoupon?.price})
-                      </Button>
+                      {paymentMode === 'cash' ? (
+                        <Button 
+                          onClick={submitSale}
+                          disabled={submitting || !selectedBranch}
+                          className="flex-1 h-12 text-lg"
+                          style={{ backgroundColor: '#16a34a' }}
+                          data-testid="submit-sale-btn"
+                        >
+                          {submitting ? (
+                            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          ) : (
+                            <CheckCircle className="h-5 w-5 mr-2" />
+                          )}
+                          Complete Sale (Cash ₹{validatedCoupon?.campaign_price || validatedCoupon?.price})
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={() => setStep(5)}
+                          disabled={!selectedBranch}
+                          className="flex-1 h-12 text-lg"
+                          style={{ backgroundColor: THEME_COLOR }}
+                        >
+                          <QrCode className="h-5 w-5 mr-2" />
+                          Generate Payment QR
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      )}
                     </div>
 
                     <Button variant="link" onClick={resetSale} className="w-full text-zinc-500">
                       Cancel & Start Over
                     </Button>
+                  </div>
+                )}
+
+                {/* ===== STEP 5: UPI Payment with QR ===== */}
+                {step === 5 && (
+                  <div className="space-y-4">
+                    <PaymentQR
+                      ticketId={validatedCoupon?.coupon_id || couponCode}
+                      amount={validatedCoupon?.campaign_price || validatedCoupon?.price}
+                      customerName={customerName}
+                      customerPhone={customerPhone}
+                      onPaymentSuccess={(data) => {
+                        toast.success('Payment received! Completing sale...');
+                        submitSale();
+                      }}
+                      onPaymentFailed={(err) => {
+                        toast.error('Payment failed. You can retry or switch to cash.');
+                      }}
+                      onCancel={() => {
+                        setStep(4);
+                        setPaymentMode('cash');
+                      }}
+                    />
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button variant="outline" onClick={() => setStep(4)} className="flex-1">
+                        <ChevronLeft className="h-4 w-4 mr-1" /> Back to Options
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
