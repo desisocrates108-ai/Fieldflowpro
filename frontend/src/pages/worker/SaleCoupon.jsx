@@ -391,10 +391,10 @@ export default function SaleCouponPage() {
                     {getStepTitle()}
                   </CardTitle>
                   <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4].map(s => (
+                    {[1, 2, 3, 4, 5].map(s => (
                       <div 
                         key={s}
-                        className={`w-8 h-2 rounded-full transition-colors ${
+                        className={`w-6 h-2 rounded-full transition-colors ${
                           s <= step ? 'bg-[#ED1C24]' : 'bg-zinc-200'
                         }`}
                       />
@@ -404,7 +404,8 @@ export default function SaleCouponPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 
-                {/* GPS Status - Always visible */}
+                {/* GPS Status - Always visible (except payment step) */}
+                {step !== 5 && (
                 <div className="flex items-center gap-2 p-3 bg-zinc-50 rounded-lg border">
                   <MapPin className={`h-4 w-4 ${location ? 'text-green-600' : 'text-zinc-400'}`} />
                   {location ? (
@@ -421,6 +422,7 @@ export default function SaleCouponPage() {
                     <RefreshCcw className="h-3 w-3" />
                   </Button>
                 </div>
+                )}
                 
                 {locationError && (
                   <Alert className="border-yellow-500 bg-yellow-50">
