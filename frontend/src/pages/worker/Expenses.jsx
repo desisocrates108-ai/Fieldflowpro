@@ -199,16 +199,16 @@ export default function ExpensesPage() {
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="add-expense-btn">
+                <Button style={{ backgroundColor: THEME_COLOR }} data-testid="add-expense-btn">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Expense
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle className="font-['Barlow_Condensed'] text-2xl">Submit Expense</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                <div className="flex-1 overflow-y-auto space-y-4 py-4 px-1">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Expense Type</Label>
@@ -271,7 +271,7 @@ export default function ExpensesPage() {
                           />
                         </div>
                         <div className="flex gap-2">
-                          <Button onClick={capturePhoto} className="flex-1">
+                          <Button onClick={capturePhoto} className="flex-1" style={{ backgroundColor: THEME_COLOR }}>
                             <Camera className="h-4 w-4 mr-2" />
                             Capture
                           </Button>
@@ -282,7 +282,7 @@ export default function ExpensesPage() {
                       </div>
                     ) : billPhoto ? (
                       <div className="relative">
-                        <img src={billPhoto} alt="Bill" className="w-full rounded-lg" />
+                        <img src={billPhoto} alt="Bill" className="w-full rounded-lg max-h-40 object-contain" />
                         <Button
                           variant="secondary"
                           size="sm"
@@ -296,7 +296,7 @@ export default function ExpensesPage() {
                     ) : (
                       <Button
                         variant="outline"
-                        className="w-full h-24 border-dashed"
+                        className="w-full h-20 border-dashed"
                         onClick={() => setShowCamera(true)}
                         data-testid="capture-bill-btn"
                       >
@@ -320,21 +320,25 @@ export default function ExpensesPage() {
                       )}
                     </div>
                   </div>
-
+                </div>
+                
+                {/* Sticky Footer - Always visible */}
+                <DialogFooter className="border-t pt-4 mt-2">
                   <Button
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full h-12 text-lg"
+                    style={{ backgroundColor: '#16a34a' }}
                     onClick={handleSubmit}
                     disabled={submitting}
                     data-testid="submit-expense-btn"
                   >
                     {submitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
+                      <CheckCircle className="h-5 w-5 mr-2" />
                     )}
                     Submit Expense
                   </Button>
-                </div>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
