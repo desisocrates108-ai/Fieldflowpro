@@ -153,15 +153,6 @@ export default function LoginPage() {
               </div>
             </CardContent>
           </Card>
-          
-          {/* Demo credentials - styled with theme color */}
-          <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: `${THEME_COLOR}10`, border: `1px solid ${THEME_COLOR}30` }}>
-            <p className="text-sm font-medium mb-2" style={{ color: THEME_COLOR }}>Demo Credentials:</p>
-            <p className="text-xs text-zinc-600">Admin: testadmin@fieldflow.com / admin123</p>
-            <p className="text-xs text-zinc-600">Worker: testworker@fieldflow.com / worker123</p>
-            <p className="text-xs text-zinc-600">Branch: testbranch@fieldflow.com / branch123</p>
-            <p className="text-xs text-zinc-600">CRE: testcre@fieldflow.com / cre123</p>
-          </div>
         </div>
       </div>
     </div>
