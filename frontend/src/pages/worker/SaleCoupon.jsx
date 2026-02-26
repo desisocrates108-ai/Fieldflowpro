@@ -305,6 +305,9 @@ export default function SaleCouponPage() {
     setOcrDetectedName('');
     setOcrDetectedPhone('');
     setOcrConfidence(0);
+    setShowPayment(false);
+    setSaleResult(null);
+    setPaymentMode('cash');
     getCurrentLocation();
   };
 
