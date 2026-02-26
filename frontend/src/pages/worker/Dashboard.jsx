@@ -170,10 +170,10 @@ export default function WorkerDashboard() {
         )}
 
         {/* MY COUPONS Section */}
-        <Card className="border-2 border-blue-200">
+        <Card className="border-2" style={{ borderColor: `${THEME_COLOR}40` }}>
           <CardHeader className="pb-2">
             <CardTitle className="font-['Barlow_Condensed'] text-xl flex items-center gap-2">
-              <Package className="h-5 w-5 text-blue-600" />
+              <Package className="h-5 w-5" style={{ color: THEME_COLOR }} />
               MY COUPONS
             </CardTitle>
           </CardHeader>
@@ -186,10 +186,10 @@ export default function WorkerDashboard() {
             ) : (
               <div className="space-y-4">
                 {/* Possession Count */}
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: `${THEME_COLOR}10` }}>
                   <div>
                     <p className="text-sm text-zinc-600">Coupons In Possession</p>
-                    <p className="text-3xl font-bold font-['Barlow_Condensed'] text-blue-600">
+                    <p className="text-3xl font-bold font-['Barlow_Condensed']" style={{ color: THEME_COLOR }}>
                       {couponSummary?.coupon_possession_count || 0}
                     </p>
                   </div>
@@ -219,6 +219,7 @@ export default function WorkerDashboard() {
                         <Button 
                           onClick={handleUpdatePossession}
                           className="w-full"
+                          style={{ backgroundColor: THEME_COLOR }}
                           disabled={updating}
                           data-testid="confirm-update-btn"
                         >
@@ -251,64 +252,6 @@ export default function WorkerDashboard() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-['Barlow_Condensed']">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Button 
-              className="h-auto py-4 justify-start" 
-              variant={attendance?.punchedIn && !attendance?.punchedOut ? "default" : "outline"}
-              asChild
-            >
-              <a href="/worker/attendance">
-                <Clock className="h-5 w-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-medium">
-                    {!attendance?.punchedIn ? 'Punch In' : !attendance?.punchedOut ? 'Punch Out' : 'View Attendance'}
-                  </p>
-                  <p className="text-xs opacity-80">Record your attendance</p>
-                </div>
-              </a>
-            </Button>
-
-            <Button 
-              className="h-auto py-4 justify-start bg-blue-600 hover:bg-blue-700" 
-              disabled={!attendance?.punchedIn || (couponSummary?.coupon_possession_count || 0) === 0}
-              asChild
-            >
-              <a href="/worker/coupons">
-                <Camera className="h-5 w-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-medium">Issue Coupon</p>
-                  <p className="text-xs opacity-80">Click photo to issue</p>
-                </div>
-              </a>
-            </Button>
-
-            <Button className="h-auto py-4 justify-start" variant="outline" asChild>
-              <a href="/worker/my-coupons">
-                <Ticket className="h-5 w-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-medium">My Coupons</p>
-                  <p className="text-xs text-zinc-500">View issued coupons</p>
-                </div>
-              </a>
-            </Button>
-
-            <Button className="h-auto py-4 justify-start" variant="outline" asChild>
-              <a href="/worker/tasks">
-                <ClipboardList className="h-5 w-5 mr-3" />
-                <div className="text-left">
-                  <p className="font-medium">My Tasks</p>
-                  <p className="text-xs text-zinc-500">View assigned tasks</p>
-                </div>
-              </a>
-            </Button>
           </CardContent>
         </Card>
 
