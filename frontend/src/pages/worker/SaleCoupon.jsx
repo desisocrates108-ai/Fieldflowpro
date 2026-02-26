@@ -350,7 +350,8 @@ export default function SaleCouponPage() {
       case 1: return 'Step 1: Enter Coupon Code';
       case 2: return 'Step 2: Capture Photo (Optional)';
       case 3: return 'Step 3: Customer Details';
-      case 4: return 'Step 4: Select Branch & Confirm';
+      case 4: return 'Step 4: Select Branch';
+      case 5: return 'Step 5: Payment';
       default: return '';
     }
   };
