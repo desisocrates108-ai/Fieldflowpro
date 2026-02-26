@@ -375,8 +375,8 @@ export default function ExpensesPage() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Receipt className="h-5 w-5 text-blue-600" />
+                <div className="p-2 rounded-lg" style={{ backgroundColor: `${THEME_COLOR}20` }}>
+                  <Receipt className="h-5 w-5" style={{ color: THEME_COLOR }} />
                 </div>
                 <div>
                   <p className="text-sm text-zinc-500">Total Claims</p>
@@ -395,7 +395,7 @@ export default function ExpensesPage() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <Loader2 className="h-8 w-8 animate-spin" style={{ color: THEME_COLOR }} />
               </div>
             ) : expenses.length === 0 ? (
               <div className="text-center py-8">
