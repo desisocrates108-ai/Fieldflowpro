@@ -132,7 +132,7 @@ export default function SaleCouponPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ code: couponCode.trim().toUpperCase() })
+        body: JSON.stringify({ coupon_code: couponCode.trim().toUpperCase() })
       });
 
       const data = await response.json();
