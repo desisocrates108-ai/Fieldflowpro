@@ -179,6 +179,15 @@ Build a production-ready, offline-first Progressive Web App (PWA) for a field se
 
 ## Changelog
 
+### February 26, 2026 - v4.3.0 - Razorpay Integration
+- Integrated Razorpay Payment Gateway for UPI/QR payments
+- Added 5-step worker sale flow (Coupon → Photo → Details → Branch → Payment)
+- Payment mode selection: Cash or UPI/QR
+- Real-time payment status checking with auto-refresh
+- Webhook integration for payment.captured and payment.failed events
+- Admin payment statistics dashboard
+- Signature verification for secure payments
+
 ### February 24, 2026 - v4.2.0
 - Implemented COMPLETE MASTER PRODUCTION PROMPT
 - Removed public signup routes
