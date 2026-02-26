@@ -21,6 +21,7 @@ import { formatTime } from '../../lib/utils';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const THEME_COLOR = '#ED1C24';
 
 export default function WorkerDashboard() {
   const { user } = useAuth();
