@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import Webcam from 'react-webcam';
 import { createWorker } from 'tesseract.js';
+import PaymentQR from '../../components/PaymentQR';
 import { 
   Ticket, User, Phone, Camera, MapPin, Building2,
   Loader2, CheckCircle, AlertTriangle, Search,
-  RefreshCcw, History, Eye, ScanLine, ChevronRight, ChevronLeft
+  RefreshCcw, History, Eye, ScanLine, ChevronRight, ChevronLeft,
+  QrCode, CreditCard, IndianRupee
 } from 'lucide-react';
 import { toast } from 'sonner';
 
