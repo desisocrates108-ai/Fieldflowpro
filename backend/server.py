@@ -45,6 +45,7 @@ import routes_ledger
 import routes_admin
 import routes_cre_branch
 import routes_intelligence
+import routes_payments
 import background_tasks
 
 ROOT_DIR = Path(__file__).parent
