@@ -1629,6 +1629,7 @@ routes_ledger.init_routes(db, create_audit_log, UPLOAD_DIR)
 routes_admin.init_routes(db, create_audit_log)
 routes_cre_branch.init_routes(db, create_audit_log)
 routes_intelligence.init_routes(db, create_audit_log)
+routes_payments.init_routes(db, create_audit_log)
 background_tasks.init_background_tasks(db)
 
 # Include the router
@@ -1641,6 +1642,7 @@ app.include_router(routes_ledger.router)
 app.include_router(routes_admin.router)
 app.include_router(routes_cre_branch.router)
 app.include_router(routes_intelligence.router)
+app.include_router(routes_payments.router)
 
 # Mount uploads directory
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
