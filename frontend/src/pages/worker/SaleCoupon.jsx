@@ -28,9 +28,9 @@ const USE_OCR = true;
 export default function SaleCouponPage() {
   const [activeTab, setActiveTab] = useState('sale');
   
-  // 4-Step Sale Process
+  // 5-Step Sale Process (added Payment step)
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
   
   // Step 1: Coupon Code
   const [couponCode, setCouponCode] = useState('');
@@ -44,10 +44,15 @@ export default function SaleCouponPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   
-  // Step 4: Branch & Submit
+  // Step 4: Branch Selection
   const [selectedBranch, setSelectedBranch] = useState('');
   const [branches, setBranches] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Step 5: Payment
+  const [showPayment, setShowPayment] = useState(false);
+  const [saleResult, setSaleResult] = useState(null);
+  const [paymentMode, setPaymentMode] = useState('cash'); // 'cash' or 'upi'
   
   // GPS Location (required)
   const [location, setLocation] = useState(null);
