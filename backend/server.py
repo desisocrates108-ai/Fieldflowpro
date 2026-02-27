@@ -1631,6 +1631,7 @@ routes_admin.init_routes(db, create_audit_log)
 routes_cre_branch.init_routes(db, create_audit_log)
 routes_intelligence.init_routes(db, create_audit_log)
 routes_payments.init_routes(db, create_audit_log)
+routes_attendance.init_routes(db, create_audit_log)
 background_tasks.init_background_tasks(db)
 
 # Include the router
@@ -1644,6 +1645,7 @@ app.include_router(routes_admin.router)
 app.include_router(routes_cre_branch.router)
 app.include_router(routes_intelligence.router)
 app.include_router(routes_payments.router)
+app.include_router(routes_attendance.router)
 
 # Mount uploads directory - MUST be mounted BEFORE /api routes for correct priority
 # This serves static files from /uploads/* for expense bill photos, etc.
