@@ -25,17 +25,17 @@ export default function AttendancePage() {
   const fetchAttendance = async () => {
     try {
       const response = await attendanceAPI.getToday();
-      const records = response.data;
+      const data = response.data;
       
-      const punchIn = records.find(r => r.type === 'PUNCH_IN');
-      const punchOut = records.find(r => r.type === 'PUNCH_OUT');
-      
+      // New API returns a single object with status
       setAttendance({
-        punchedIn: !!punchIn,
-        punchedOut: !!punchOut,
-        punchInTime: punchIn?.timestamp,
-        punchOutTime: punchOut?.timestamp,
-        punchInLocation: punchIn ? { latitude: punchIn.latitude, longitude: punchIn.longitude } : null
+        punchedIn: !!data.punch_in_time,
+        punchedOut: !!data.punch_out_time,
+        punchInTime: data.punch_in_time,
+        punchOutTime: data.punch_out_time,
+        status: data.status,
+        durationMinutes: data.duration_minutes,
+        durationFormatted: data.duration_formatted
       });
     } catch (error) {
       console.error('Failed to fetch attendance:', error);
