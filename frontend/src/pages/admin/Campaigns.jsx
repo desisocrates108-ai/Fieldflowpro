@@ -537,10 +537,12 @@ export default function CampaignsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => updateCampaignStatus(campaign.id, 'INACTIVE')}
-                              title="Deactivate"
+                              className="text-orange-600 hover:bg-orange-50"
+                              onClick={() => handleDeactivateCampaign(campaign)}
+                              title="Deactivate (soft delete)"
+                              data-testid={`deactivate-campaign-${campaign.id}`}
                             >
-                              <XCircle className="h-4 w-4" />
+                              <Pause className="h-4 w-4" />
                             </Button>
                           ) : (
                             <Button
@@ -557,8 +559,9 @@ export default function CampaignsPage() {
                             variant="outline"
                             className="text-red-600 hover:bg-red-50"
                             onClick={() => handleDeleteCampaign(campaign)}
-                            title={campaign.sold_count > 0 ? "Deactivate (has sales)" : "Delete"}
+                            title="Delete permanently (only if no activity)"
                             data-testid={`delete-campaign-${campaign.id}`}
+                            disabled={(campaign.sold_count || 0) + (campaign.issued_count || 0) > 0}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
