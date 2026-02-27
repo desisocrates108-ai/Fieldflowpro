@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { 
   Loader2, Search, Ticket, Phone, User, 
   CheckCircle, XCircle, Eye, MapPin, Clock,
-  Camera, AlertCircle, RefreshCcw
+  Camera, AlertCircle, RefreshCcw, Trash2
 } from 'lucide-react';
 import { formatDateTime, getStatusColor } from '../../lib/utils';
 import { toast } from 'sonner';
