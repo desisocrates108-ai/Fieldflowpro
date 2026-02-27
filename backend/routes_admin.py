@@ -319,40 +319,21 @@ async def delete_user(
     request: Request,
     current_user: dict = Depends(require_roles("admin"))
 ):
-    """Delete a user (only if no dependencies)"""
+    """Delete a user - Admin can delete any non-admin user"""
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Prevent deleting admin users
+    # Only restriction: Cannot delete admin users
     if user.get("role") == "admin":
+        # Check if this is the last admin
+        admin_count = await db.users.count_documents({"role": "admin"})
+        if admin_count <= 1:
+            raise HTTPException(status_code=403, detail="Cannot delete the last admin")
         raise HTTPException(status_code=403, detail="Cannot delete admin users")
     
-    # Check dependencies based on role
+    # Delete the user - no dependency checks, admin has full control
     role = user.get("role")
-    
-    if role == "worker":
-        sales_count = await db.campaign_coupons.count_documents({"sold_by_worker_id": user_id})
-        if sales_count > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot delete worker with {sales_count} sales. Deactivate instead."
-            )
-    elif role == "branch":
-        encash_count = await db.encashments.count_documents({"encashed_by": user_id})
-        if encash_count > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot delete branch user with {encash_count} encashments. Deactivate instead."
-            )
-    elif role == "cre":
-        call_count = await db.cre_call_logs.count_documents({"cre_id": user_id})
-        if call_count > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot delete CRE with {call_count} call logs. Deactivate instead."
-            )
-    
     await db.users.delete_one({"id": user_id})
     
     await create_audit_log(
