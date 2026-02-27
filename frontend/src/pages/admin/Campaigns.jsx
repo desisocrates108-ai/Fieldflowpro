@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../components/ui/dialog';
 import { Alert, AlertDescription } from '../../components/ui/alert';
+import ForceDeleteModal from '../../components/ForceDeleteModal';
 import { 
   Plus, Ticket, Package, IndianRupee, Hash, 
   Loader2, Search, Eye, Trash2, Pause,
