@@ -997,3 +997,50 @@ async def get_worker_sales(
         })
     
     return results
+
+
+
+@router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(
+    campaign_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    Delete a campaign - safe delete logic:
+    - If campaign has sold/issued coupons -> return error, suggest deactivation
+    - If campaign has no activity -> allow permanent delete
+    """
+    campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Check if campaign has any sold or issued coupons
+    sold_count = await db.campaign_coupons.count_documents({
+        "campaign_id": campaign_id,
+        "status": {"$in": ["SOLD", "ISSUED"]}
+    })
+    
+    if sold_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Campaign has {sold_count} sold/issued coupons. Please deactivate instead of deleting."
+        )
+    
+    # Delete all coupons associated with this campaign
+    await db.campaign_coupons.delete_many({"campaign_id": campaign_id})
+    
+    # Delete the campaign
+    await db.campaigns.delete_one({"id": campaign_id})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="CAMPAIGN_DELETED",
+        entity="campaign",
+        entity_id=campaign_id,
+        metadata={"campaign_name": campaign["name"]},
+        request=request
+    )
+    
+    return {"message": f"Campaign '{campaign['name']}' and its coupons have been deleted"}
