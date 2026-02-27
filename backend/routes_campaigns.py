@@ -850,6 +850,7 @@ async def worker_sale_coupon(
     
     # ===== UPDATE COUPON =====
     now = datetime.now(timezone.utc)
+    payment_mode = data.payment_mode.upper() if data.payment_mode else "CASH"
     
     await db.campaign_coupons.update_one(
         {"id": coupon["id"]},
@@ -867,6 +868,7 @@ async def worker_sale_coupon(
             "state": state,
             "area_name": area_name,
             "branch_id": data.branch_id,
+            "payment_mode": payment_mode,
             "ocr_confidence": data.ocr_confidence,
             "ocr_detected_name": data.ocr_detected_name,
             "ocr_detected_phone": data.ocr_detected_phone
@@ -884,8 +886,9 @@ async def worker_sale_coupon(
         worker_id=worker_id,
         transaction_type="SALE",
         amount=campaign["price"],
-        description=f"Sale: {code} - {campaign['name']} @ {branch['name']}",
-        reference_id=coupon["id"]
+        description=f"Sale: {code} - {campaign['name']} @ {branch['name']} ({payment_mode})",
+        reference_id=coupon["id"],
+        payment_mode=payment_mode
     )
     
     # Log location
