@@ -104,9 +104,10 @@ export default function CouponsPage() {
   };
 
   const handleDeleteCoupon = async (coupon) => {
-    // Only allow deletion of AVAILABLE coupons
-    if (coupon.status !== 'AVAILABLE') {
-      toast.error(`Coupon is ${coupon.status}. Only AVAILABLE coupons can be deleted.`);
+    // Only allow deletion of AVAILABLE or PENDING coupons
+    const allowedStatuses = ['AVAILABLE', 'PENDING'];
+    if (!allowedStatuses.includes(coupon.status)) {
+      toast.error(`Coupon is ${coupon.status}. Only AVAILABLE/PENDING coupons can be deleted.`);
       return;
     }
     
@@ -120,7 +121,7 @@ export default function CouponsPage() {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BACKEND_URL}/api/coupons/${coupon.id}`, {
+      const response = await fetch(`${BACKEND_URL}/api/campaigns/coupons/${coupon.id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
