@@ -109,25 +109,19 @@ export default function CouponsPage() {
     setVerifyDialogOpen(true);
   };
 
-  const handleDeleteCoupon = async (coupon) => {
-    // Only allow deletion of AVAILABLE or PENDING coupons
-    const allowedStatuses = ['AVAILABLE', 'PENDING'];
-    if (!allowedStatuses.includes(coupon.status)) {
-      toast.error(`Coupon is ${coupon.status}. Only AVAILABLE/PENDING coupons can be deleted.`);
-      return;
-    }
+  const openDeleteModal = (coupon) => {
+    setCouponToDelete(coupon);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteCoupon = async (forceDelete) => {
+    if (!couponToDelete) return;
     
-    if (!window.confirm(
-      `⚠️ DELETE COUPON\n\n` +
-      `Code: ${coupon.code || coupon.coupon_code}\n\n` +
-      `This will permanently delete this coupon. Continue?`
-    )) {
-      return;
-    }
-    
+    setDeleting(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${BACKEND_URL}/api/campaigns/coupons/${coupon.id}`, {
+      const url = `${BACKEND_URL}/api/campaigns/coupons/${couponToDelete.id}${forceDelete ? '?force=true' : ''}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -136,12 +130,16 @@ export default function CouponsPage() {
         const data = await response.json();
         toast.success(data.message || 'Coupon deleted');
         fetchCoupons();
+        setDeleteModalOpen(false);
+        setCouponToDelete(null);
       } else {
         const error = await response.json();
         toast.error(error.detail || 'Failed to delete coupon');
       }
     } catch (error) {
       toast.error('Failed to delete coupon');
+    } finally {
+      setDeleting(false);
     }
   };
 
