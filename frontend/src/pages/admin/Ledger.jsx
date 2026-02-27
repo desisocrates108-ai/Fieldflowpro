@@ -333,6 +333,8 @@ export default function AdminLedgerPage() {
                         <TableHead>Worker</TableHead>
                         <TableHead>Sales</TableHead>
                         <TableHead>Revenue</TableHead>
+                        <TableHead>Cash</TableHead>
+                        <TableHead>QR/UPI</TableHead>
                         <TableHead>Advances</TableHead>
                         <TableHead>Expenses</TableHead>
                         <TableHead>Net Payable</TableHead>
@@ -352,7 +354,9 @@ export default function AdminLedgerPage() {
                           </TableCell>
                           <TableCell className="font-medium">{ledger.total_coupons_sold}</TableCell>
                           <TableCell className="text-green-600">₹{ledger.total_revenue.toLocaleString()}</TableCell>
-                          <TableCell className="text-blue-600">₹{ledger.total_advances.toLocaleString()}</TableCell>
+                          <TableCell className="text-orange-600">₹{(ledger.total_cash_collected || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-blue-600">₹{(ledger.total_qr_collected || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-purple-600">₹{ledger.total_advances.toLocaleString()}</TableCell>
                           <TableCell className="text-red-600">₹{ledger.total_expenses.toLocaleString()}</TableCell>
                           <TableCell className={`font-bold ${ledger.net_payable > 0 ? 'text-green-600' : 'text-red-600'}`}>
                             ₹{ledger.net_payable.toLocaleString()}
