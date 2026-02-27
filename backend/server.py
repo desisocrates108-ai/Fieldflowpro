@@ -1644,8 +1644,10 @@ app.include_router(routes_cre_branch.router)
 app.include_router(routes_intelligence.router)
 app.include_router(routes_payments.router)
 
-# Mount uploads directory
+# Mount uploads directory - MUST be mounted BEFORE /api routes for correct priority
+# This serves static files from /uploads/* for expense bill photos, etc.
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="api_uploads")
 
 # CORS
 app.add_middleware(
