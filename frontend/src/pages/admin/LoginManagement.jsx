@@ -681,9 +681,10 @@ export default function LoginManagementPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => deleteUser(user.id)}
+                            onClick={() => openDeleteModal(user)}
                             title="Delete User"
                             className="hover:bg-red-50"
+                            data-testid={`delete-user-${user.id}`}
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -696,6 +697,20 @@ export default function LoginManagementPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Force Delete Modal */}
+        <ForceDeleteModal
+          open={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setUserToDelete(null);
+          }}
+          onConfirm={handleDeleteUser}
+          title="Delete User"
+          itemName={userToDelete ? `${userToDelete.name} (${userToDelete.email})` : ''}
+          dependencies={userDependencies}
+          loading={deleting}
+        />
 
         {/* Edit User Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
