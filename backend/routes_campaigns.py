@@ -1041,10 +1041,13 @@ async def deactivate_campaign(
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
-        action="CAMPAIGN_DEACTIVATED",
+        action="CAMPAIGN_UPDATED",
         entity="campaign",
         entity_id=campaign_id,
-        metadata={"campaign_name": campaign["name"]},
+        metadata={
+            "campaign_name": campaign["name"],
+            "action": "deactivated"
+        },
         request=request
     )
     
