@@ -446,6 +446,7 @@ export default function WorkersPage() {
                     <TableHead>Sales</TableHead>
                     <TableHead>Revenue</TableHead>
                     <TableHead>Net Payable</TableHead>
+                    <TableHead>Cash</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -477,6 +478,20 @@ export default function WorkersPage() {
                         </TableCell>
                         <TableCell className={ledger.net_payable > 0 ? 'text-green-600 font-medium' : ''}>
                           ₹{(ledger.net_payable || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant={worker.cash_allowed !== false ? 'default' : 'outline'}
+                            className={worker.cash_allowed !== false 
+                              ? 'bg-green-600 hover:bg-green-700 h-8' 
+                              : 'text-zinc-500 h-8'}
+                            onClick={() => toggleCashPermission(worker)}
+                            data-testid={`cash-toggle-${worker.id}`}
+                          >
+                            <Banknote className="h-4 w-4 mr-1" />
+                            {worker.cash_allowed !== false ? 'ON' : 'OFF'}
+                          </Button>
                         </TableCell>
                         <TableCell>
                           <Badge className={worker.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
