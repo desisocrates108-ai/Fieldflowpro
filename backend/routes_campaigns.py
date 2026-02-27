@@ -359,46 +359,6 @@ async def update_campaign(
     return {"message": "Campaign updated successfully"}
 
 
-@router.delete("/{campaign_id}")
-async def delete_campaign(
-    campaign_id: str,
-    request: Request,
-    current_user: dict = Depends(require_roles("admin"))
-):
-    """Delete campaign (only if no sales)"""
-    campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    
-    # Check for sales
-    sold_count = await db.campaign_coupons.count_documents({
-        "campaign_id": campaign_id,
-        "status": "SOLD"
-    })
-    
-    if sold_count > 0:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Cannot delete campaign with {sold_count} sold coupons. Mark as INACTIVE instead."
-        )
-    
-    # Delete coupons and campaign
-    await db.campaign_coupons.delete_many({"campaign_id": campaign_id})
-    await db.campaigns.delete_one({"id": campaign_id})
-    
-    await create_audit_log(
-        user_id=current_user["sub"],
-        user_role=current_user["role"],
-        action="CAMPAIGN_DELETED",
-        entity="campaign",
-        entity_id=campaign_id,
-        metadata={"name": campaign["name"]},
-        request=request
-    )
-    
-    return {"message": "Campaign deleted successfully"}
-
-
 # ========== Coupon Validation & Sale ==========
 
 @router.post("/validate-code", response_model=CouponValidateResponse)
