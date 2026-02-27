@@ -608,6 +608,8 @@ class WorkerLedger(BaseModel):
     worker_id: str
     total_coupons_sold: int = 0
     total_revenue: float = 0.0
+    total_cash_collected: float = 0.0  # Cash payments
+    total_qr_collected: float = 0.0    # QR/UPI payments
     total_advances: float = 0.0
     total_expenses: float = 0.0
     net_payable: float = 0.0  # revenue - advances - expenses
@@ -618,6 +620,8 @@ class WorkerLedgerResponse(BaseModel):
     worker_name: str
     total_coupons_sold: int
     total_revenue: float
+    total_cash_collected: float = 0.0
+    total_qr_collected: float = 0.0
     total_advances: float
     total_expenses: float
     net_payable: float
