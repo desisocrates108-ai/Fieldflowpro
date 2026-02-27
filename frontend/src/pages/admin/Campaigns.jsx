@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { 
   Plus, Ticket, Package, IndianRupee, Hash, 
-  Loader2, Search, Eye, 
+  Loader2, Search, Eye, Trash2,
   RefreshCcw, CheckCircle, XCircle, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
