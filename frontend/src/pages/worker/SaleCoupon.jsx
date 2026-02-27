@@ -53,6 +53,7 @@ export default function SaleCouponPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [saleResult, setSaleResult] = useState(null);
   const [paymentMode, setPaymentMode] = useState('cash'); // 'cash' or 'upi'
+  const [cashAllowed, setCashAllowed] = useState(true); // Worker's cash permission
   
   // GPS Location (required)
   const [location, setLocation] = useState(null);
