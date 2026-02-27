@@ -960,7 +960,7 @@ async def get_worker_sales(
 
 
 
-@router.delete("/campaigns/{campaign_id}")
+@router.delete("/{campaign_id}")
 async def delete_campaign(
     campaign_id: str,
     request: Request,
