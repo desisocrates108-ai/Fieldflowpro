@@ -229,6 +229,27 @@ export default function WorkersPage() {
     }
   };
 
+  const toggleCashPermission = async (worker) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/admin/workers/${worker.id}/toggle-cash`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to toggle cash permission');
+      }
+    } catch (error) {
+      toast.error('Failed to toggle cash permission');
+    }
+  };
+
   const filteredWorkers = workers.filter(w =>
     w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     w.email.toLowerCase().includes(searchQuery.toLowerCase())
