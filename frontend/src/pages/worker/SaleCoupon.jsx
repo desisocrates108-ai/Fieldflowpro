@@ -695,21 +695,24 @@ export default function SaleCouponPage() {
                         <CreditCard className="h-4 w-4" />
                         Payment Mode *
                       </Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMode('cash')}
-                          className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
-                            paymentMode === 'cash' 
-                              ? 'border-[#ED1C24] bg-red-50' 
-                              : 'border-zinc-200 hover:border-zinc-300'
-                          }`}
-                        >
-                          <IndianRupee className={`h-6 w-6 ${paymentMode === 'cash' ? 'text-[#ED1C24]' : 'text-zinc-500'}`} />
-                          <span className={`font-medium ${paymentMode === 'cash' ? 'text-[#ED1C24]' : 'text-zinc-700'}`}>
-                            Cash
-                          </span>
-                        </button>
+                      <div className={`grid ${cashAllowed ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+                        {cashAllowed && (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMode('cash')}
+                            className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
+                              paymentMode === 'cash' 
+                                ? 'border-[#ED1C24] bg-red-50' 
+                                : 'border-zinc-200 hover:border-zinc-300'
+                            }`}
+                            data-testid="payment-cash-btn"
+                          >
+                            <IndianRupee className={`h-6 w-6 ${paymentMode === 'cash' ? 'text-[#ED1C24]' : 'text-zinc-500'}`} />
+                            <span className={`font-medium ${paymentMode === 'cash' ? 'text-[#ED1C24]' : 'text-zinc-700'}`}>
+                              Cash
+                            </span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setPaymentMode('upi')}
@@ -718,6 +721,7 @@ export default function SaleCouponPage() {
                               ? 'border-[#ED1C24] bg-red-50' 
                               : 'border-zinc-200 hover:border-zinc-300'
                           }`}
+                          data-testid="payment-upi-btn"
                         >
                           <QrCode className={`h-6 w-6 ${paymentMode === 'upi' ? 'text-[#ED1C24]' : 'text-zinc-500'}`} />
                           <span className={`font-medium ${paymentMode === 'upi' ? 'text-[#ED1C24]' : 'text-zinc-700'}`}>
@@ -725,6 +729,11 @@ export default function SaleCouponPage() {
                           </span>
                         </button>
                       </div>
+                      {!cashAllowed && (
+                        <p className="text-sm text-amber-600 mt-2">
+                          Cash payments are disabled for your account. Please use QR/UPI only.
+                        </p>
+                      )}
                     </div>
 
                     {/* Navigation & Next */}
