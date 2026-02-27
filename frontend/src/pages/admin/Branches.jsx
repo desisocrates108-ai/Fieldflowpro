@@ -364,73 +364,19 @@ export default function BranchesPage() {
           </CardContent>
         </Card>
 
-        {/* Delete/Deactivate Confirmation Dialog */}
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-500" />
-                Remove Branch
-              </DialogTitle>
-            </DialogHeader>
-            
-            {deleteResult ? (
-              <Alert className={deleteResult.action === 'DELETED' ? 'border-green-500 bg-green-50' : 'border-amber-500 bg-amber-50'}>
-                <AlertDescription className="flex items-center gap-2">
-                  {deleteResult.action === 'DELETED' ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-green-800">{deleteResult.message}</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <div className="text-amber-800">
-                        <p className="font-medium">{deleteResult.message}</p>
-                        {deleteResult.dependencies && (
-                          <ul className="mt-2 text-sm">
-                            <li>Workers assigned: {deleteResult.dependencies.assigned_workers}</li>
-                            <li>Coupons sold: {deleteResult.dependencies.sold_coupons}</li>
-                            <li>Encashments: {deleteResult.dependencies.encashments}</li>
-                          </ul>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <div className="space-y-4 py-4">
-                <p className="text-zinc-600">
-                  Are you sure you want to remove <strong>{branchToDelete?.name}</strong>?
-                </p>
-                <Alert className="border-amber-500 bg-amber-50">
-                  <AlertDescription className="text-amber-800 text-sm">
-                    <strong>Note:</strong> If this branch has assigned workers, sold coupons, or encashment history, 
-                    it will be <strong>deactivated</strong> instead of permanently deleted.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-            
-            {!deleteResult && (
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDeleteBranch}
-                  disabled={deleting}
-                  data-testid="confirm-delete-branch-btn"
-                >
-                  {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Remove Branch
-                </Button>
-              </DialogFooter>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* Force Delete Modal */}
+        <ForceDeleteModal
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setBranchToDelete(null);
+          }}
+          onConfirm={handleDeleteBranch}
+          title="Delete Branch"
+          itemName={branchToDelete?.name || ''}
+          dependencies={branchDependencies}
+          loading={deleting}
+        />
       </div>
     </Layout>
   );
