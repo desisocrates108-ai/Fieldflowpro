@@ -498,19 +498,12 @@ async def delete_worker(
     request: Request,
     current_user: dict = Depends(require_roles("admin"))
 ):
-    """Delete a worker (soft delete - marks as deleted)"""
+    """Delete a worker - Admin can delete any worker"""
     worker = await db.users.find_one({"id": worker_id, "role": "worker"}, {"_id": 0})
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
     
-    # Check for sales
-    sales_count = await db.campaign_coupons.count_documents({"sold_by_worker_id": worker_id})
-    if sales_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete worker with {sales_count} sales. Disable instead."
-        )
-    
+    # Delete the worker - no dependency checks, admin has full control
     await db.users.delete_one({"id": worker_id})
     
     await create_audit_log(
