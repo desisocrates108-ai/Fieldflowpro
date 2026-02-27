@@ -36,6 +36,11 @@ export default function CouponsPage() {
   const [correctedMobile, setCorrectedMobile] = useState('');
   const [processing, setProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('pending');
+  
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isCRE = user?.role === 'cre' || user?.role === 'admin';
 
