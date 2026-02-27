@@ -175,7 +175,17 @@ export default function AdminLedgerPage() {
 
   const openImageViewer = (url) => {
     // Handle both relative and absolute URLs
-    const fullUrl = url.startsWith('http') ? url : `${API_URL}${url}`;
+    // Backend stores paths like /uploads/filename.jpg
+    // But the ingress routes /api/* to backend, so use /api/uploads/
+    let fullUrl = url;
+    if (!url.startsWith('http')) {
+      // Convert /uploads/xxx to /api/uploads/xxx for proper routing through ingress
+      if (url.startsWith('/uploads/')) {
+        fullUrl = `${API_URL}/api/uploads/${url.replace('/uploads/', '')}`;
+      } else {
+        fullUrl = `${API_URL}${url}`;
+      }
+    }
     setViewingImageUrl(fullUrl);
     setImageViewerOpen(true);
   };
