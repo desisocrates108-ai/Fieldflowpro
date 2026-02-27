@@ -19,6 +19,7 @@ import CampaignsPage from "./pages/admin/Campaigns";
 import AdminLedgerPage from "./pages/admin/Ledger";
 import LoginManagementPage from "./pages/admin/LoginManagement";
 import ApiKeysPage from "./pages/admin/ApiKeys";
+import AdminAttendancePage from "./pages/admin/Attendance";
 
 // Worker Pages
 import WorkerDashboard from "./pages/worker/Dashboard";
