@@ -100,19 +100,31 @@ export default function BranchesPage() {
     }
   };
 
-  const openDeleteDialog = (branch) => {
+  const openDeleteDialog = async (branch) => {
     setBranchToDelete(branch);
-    setDeleteResult(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/branches/${branch.id}/dependencies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setBranchDependencies(data.dependencies || {});
+      }
+    } catch (error) {
+      setBranchDependencies({});
+    }
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteBranch = async () => {
+  const handleDeleteBranch = async (forceDelete) => {
     if (!branchToDelete) return;
     
     setDeleting(true);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_URL}/api/branches/${branchToDelete.id}`, {
+      const url = `${API_URL}/api/branches/${branchToDelete.id}${forceDelete ? '?force=true' : ''}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -120,15 +132,10 @@ export default function BranchesPage() {
       const result = await response.json();
       
       if (response.ok) {
-        setDeleteResult(result);
         toast.success(result.message);
         fetchBranches();
-        
-        // Close dialog after short delay if successful
-        setTimeout(() => {
-          setDeleteDialogOpen(false);
-          setBranchToDelete(null);
-        }, 1500);
+        setDeleteDialogOpen(false);
+        setBranchToDelete(null);
       } else {
         toast.error(result.detail || 'Failed to remove branch');
       }
