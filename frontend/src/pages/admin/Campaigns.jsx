@@ -495,6 +495,7 @@ export default function CampaignsPage() {
                             variant="outline"
                             onClick={() => viewCampaignCoupons(campaign)}
                             data-testid={`view-campaign-${campaign.id}`}
+                            title="View Coupons"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -503,6 +504,7 @@ export default function CampaignsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => updateCampaignStatus(campaign.id, 'INACTIVE')}
+                              title="Deactivate"
                             >
                               <XCircle className="h-4 w-4" />
                             </Button>
@@ -511,10 +513,21 @@ export default function CampaignsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => updateCampaignStatus(campaign.id, 'ACTIVE')}
+                              title="Activate"
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteCampaign(campaign)}
+                            title={campaign.sold_count > 0 ? "Deactivate (has sales)" : "Delete"}
+                            data-testid={`delete-campaign-${campaign.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
