@@ -1,5 +1,5 @@
 # Field Flow Pro - Product Requirements Document
-## Pan-India Field Revenue Intelligence System v4.2.0
+## Pan-India Field Revenue Intelligence System v5.0.0
 
 ---
 
@@ -26,6 +26,52 @@ Build a production-ready, offline-first Progressive Web App (PWA) for a field se
 ---
 
 ## What's Been Implemented
+
+### v5.0.0 - Attendance & Cash Management (February 27, 2026)
+
+#### P0 - Attendance Module (Completed)
+- [x] **Worker Punch-In/Out**: Field workers can punch in/out via GPS
+  - No fixed shift times (fieldwork flexibility)
+  - Status tracking: NOT_STARTED → IN_PROGRESS → PRESENT
+  - Location capture on punch-in/out
+  - Duration calculation in hours/minutes
+- [x] **Admin Attendance Dashboard**: Real-time attendance monitoring
+  - Stats: Total Workers, Present, Working, Absent, Total Hours
+  - Date picker for historical data
+  - Search and filter by status
+  - Export to CSV functionality
+  - Worker-by-worker breakdown
+
+#### P0 - Worker Cash Permission (Completed)
+- [x] **Cash Toggle in Admin Workers**: ON/OFF toggle for each worker
+  - Controls whether worker can accept cash payments
+  - Persists to `cash_allowed` field in user record
+- [x] **Sale Flow Cash Visibility**: 
+  - Workers with cash_allowed=true see both Cash and QR/UPI options
+  - Workers with cash_allowed=false see ONLY QR/UPI
+  - Warning message shown when cash is disabled
+
+#### P0 - Cash/QR Payment Tracking (Completed)
+- [x] **Payment Mode in Sales**: `payment_mode` field (CASH/QR) stored per sale
+- [x] **Ledger Cash/QR Breakdown**:
+  - Stats cards: Cash Collected, QR/UPI Collected
+  - Table columns: Cash, QR/UPI per worker
+  - API returns `total_cash_collected`, `total_qr_collected`
+
+#### P0 - Campaign Deletion (Completed)
+- [x] **Safe Delete Logic**:
+  - Campaign with sold/issued coupons → Error, suggest deactivation
+  - Campaign with no activity → Allow permanent delete
+  - Delete icon added to campaign list
+
+#### P0 - Bug Fix: Bill Preview (Completed)
+- [x] **Static File Serving**: /api/uploads/* serves uploaded files
+- [x] **URL Construction**: Frontend correctly builds full URL for bill photos
+
+#### P1 - Admin UI Refactor (Completed)
+- [x] **Remove Create Worker**: Centralized in Login Management panel
+- [x] **Cash Column**: Added to Workers table
+- [x] **Theme #ED1C24**: Applied globally
 
 ### v4.2.0 - Production Ready (February 24, 2026)
 
