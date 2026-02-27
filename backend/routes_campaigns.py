@@ -1061,18 +1061,20 @@ async def delete_coupon(
     current_user: dict = Depends(require_roles("admin"))
 ):
     """
-    HARD DELETE a single coupon - only if status is AVAILABLE.
-    Coupons with activity (ISSUED, SOLD, ENCASHED, REDEEMED, UTILIZED) cannot be deleted.
+    HARD DELETE a single coupon - only if status allows deletion.
+    Coupons with activity (ISSUED, SOLD, ENCASHED, REDEEMED, UTILIZED, ACTIVE, VERIFIED) cannot be deleted.
+    Only AVAILABLE or PENDING coupons can be deleted.
     """
     coupon = await db.campaign_coupons.find_one({"id": coupon_id}, {"_id": 0})
     if not coupon:
         raise HTTPException(status_code=404, detail="Coupon not found")
     
-    # Only allow deletion of AVAILABLE coupons
-    if coupon.get("status") != "AVAILABLE":
+    # Only allow deletion of AVAILABLE or PENDING coupons
+    allowed_statuses = ["AVAILABLE", "PENDING"]
+    if coupon.get("status") not in allowed_statuses:
         raise HTTPException(
             status_code=400,
-            detail=f"Coupon is {coupon.get('status')}. Only AVAILABLE coupons can be deleted."
+            detail=f"Coupon is {coupon.get('status')}. Only AVAILABLE/PENDING coupons can be deleted."
         )
     
     # Delete the coupon
