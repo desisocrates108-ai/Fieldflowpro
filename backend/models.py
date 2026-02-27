@@ -66,6 +66,7 @@ class User(BaseModel):
     area_id: Optional[str] = None
     branch_id: Optional[str] = None
     coupon_possession_count: int = 0  # Number of physical coupons worker has
+    cash_allowed: bool = True  # Whether worker can accept cash payments
 
 class UserResponse(BaseModel):
     id: str
