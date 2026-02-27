@@ -78,6 +78,7 @@ class UserResponse(BaseModel):
     area_id: Optional[str] = None
     branch_id: Optional[str] = None
     coupon_possession_count: int = 0
+    cash_allowed: bool = True
 
 class TokenResponse(BaseModel):
     access_token: str
