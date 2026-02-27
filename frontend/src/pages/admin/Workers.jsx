@@ -268,57 +268,15 @@ export default function WorkersPage() {
             <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
               Worker Management
             </h1>
-            <p className="text-zinc-500 mt-1">Create, manage, and control worker accounts</p>
+            <p className="text-zinc-500 mt-1">Manage worker accounts, cash permissions, and advances</p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => { setLoading(true); fetchData(); }}>
               <RefreshCcw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="create-worker-btn">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Worker
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle className="font-['Barlow_Condensed'] text-2xl">Create New Worker</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Full Name *</Label>
-                    <Input
-                      placeholder="John Doe"
-                      value={newWorker.name}
-                      onChange={(e) => setNewWorker({ ...newWorker, name: e.target.value })}
-                      data-testid="worker-name-input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email *</Label>
-                    <Input
-                      type="email"
-                      placeholder="john@company.com"
-                      value={newWorker.email}
-                      onChange={(e) => setNewWorker({ ...newWorker, email: e.target.value })}
-                      data-testid="worker-email-input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Password *</Label>
-                    <Input
-                      type="password"
-                      placeholder="Min 6 characters"
-                      value={newWorker.password}
-                      onChange={(e) => setNewWorker({ ...newWorker, password: e.target.value })}
-                      data-testid="worker-password-input"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Phone</Label>
+          </div>
+        </div>
                       <Input
                         placeholder="9876543210"
                         value={newWorker.phone}
