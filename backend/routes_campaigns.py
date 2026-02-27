@@ -1007,40 +1007,132 @@ async def delete_campaign(
     current_user: dict = Depends(require_roles("admin"))
 ):
     """
-    Delete a campaign - safe delete logic:
-    - If campaign has sold/issued coupons -> return error, suggest deactivation
-    - If campaign has no activity -> allow permanent delete
+    HARD DELETE a campaign - only if NO activity exists:
+    - No sold coupons
+    - No issued coupons
+    - No encashed coupons
+    - No redeemed coupons
+    If any activity exists, deletion is blocked - admin must use deactivate instead.
     """
     campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Check if campaign has any sold or issued coupons
-    sold_count = await db.campaign_coupons.count_documents({
+    # Check for ANY activity (not just sold/issued)
+    activity_count = await db.campaign_coupons.count_documents({
         "campaign_id": campaign_id,
-        "status": {"$in": ["SOLD", "ISSUED"]}
+        "status": {"$in": ["SOLD", "ISSUED", "ENCASHED", "REDEEMED", "UTILIZED"]}
     })
     
-    if sold_count > 0:
+    if activity_count > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Campaign has {sold_count} sold/issued coupons. Please deactivate instead of deleting."
+            detail=f"Campaign has {activity_count} coupons with activity. Only deactivation is allowed."
         )
     
-    # Delete all coupons associated with this campaign
+    # Get total coupons count for audit
+    total_coupons = await db.campaign_coupons.count_documents({"campaign_id": campaign_id})
+    
+    # HARD DELETE - remove all coupons associated with this campaign
     await db.campaign_coupons.delete_many({"campaign_id": campaign_id})
     
-    # Delete the campaign
+    # Delete the campaign document
     await db.campaigns.delete_one({"id": campaign_id})
     
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
-        action="CAMPAIGN_DELETED",
+        action="CAMPAIGN_HARD_DELETED",
+        entity="campaign",
+        entity_id=campaign_id,
+        metadata={
+            "campaign_name": campaign["name"],
+            "coupons_deleted": total_coupons
+        },
+        request=request
+    )
+    
+    return {"message": f"Campaign '{campaign['name']}' and {total_coupons} coupons permanently deleted"}
+
+
+@router.patch("/campaigns/{campaign_id}/deactivate")
+async def deactivate_campaign(
+    campaign_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    SOFT DELETE (Deactivate) a campaign - sets status to INACTIVE.
+    Use this for campaigns with activity that cannot be hard deleted.
+    """
+    campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    if campaign.get("status") == "INACTIVE":
+        raise HTTPException(status_code=400, detail="Campaign is already inactive")
+    
+    await db.campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": {"status": "INACTIVE"}}
+    )
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="CAMPAIGN_DEACTIVATED",
         entity="campaign",
         entity_id=campaign_id,
         metadata={"campaign_name": campaign["name"]},
         request=request
     )
+    
+    return {"message": f"Campaign '{campaign['name']}' has been deactivated"}
+
+
+@router.delete("/coupons/{coupon_id}")
+async def delete_coupon(
+    coupon_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    HARD DELETE a single coupon - only if status is AVAILABLE.
+    Coupons with activity (ISSUED, SOLD, ENCASHED, REDEEMED, UTILIZED) cannot be deleted.
+    """
+    coupon = await db.campaign_coupons.find_one({"id": coupon_id}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    
+    # Only allow deletion of AVAILABLE coupons
+    if coupon.get("status") != "AVAILABLE":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Coupon is {coupon.get('status')}. Only AVAILABLE coupons can be deleted."
+        )
+    
+    # Delete the coupon
+    await db.campaign_coupons.delete_one({"id": coupon_id})
+    
+    # Update campaign's total_coupons count
+    await db.campaigns.update_one(
+        {"id": coupon["campaign_id"]},
+        {"$inc": {"total_coupons": -1}}
+    )
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="COUPON_DELETED",
+        entity="coupon",
+        entity_id=coupon_id,
+        metadata={
+            "coupon_code": coupon.get("coupon_code"),
+            "campaign_id": coupon.get("campaign_id")
+        },
+        request=request
+    )
+    
+    return {"message": f"Coupon {coupon.get('coupon_code')} permanently deleted"}
     
     return {"message": f"Campaign '{campaign['name']}' and its coupons have been deleted"}
