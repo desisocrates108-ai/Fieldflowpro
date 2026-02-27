@@ -498,16 +498,9 @@ export default function CouponsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className={['AVAILABLE', 'PENDING'].includes(coupon.status)
-                                ? "text-red-600 hover:bg-red-50" 
-                                : "text-zinc-400 cursor-not-allowed"
-                              }
-                              onClick={() => handleDeleteCoupon(coupon)}
-                              disabled={!['AVAILABLE', 'PENDING'].includes(coupon.status)}
-                              title={['AVAILABLE', 'PENDING'].includes(coupon.status)
-                                ? "Delete coupon" 
-                                : `Cannot delete ${coupon.status} coupon`
-                              }
+                              className="text-red-600 hover:bg-red-50"
+                              onClick={() => openDeleteModal(coupon)}
+                              title="Delete coupon"
                               data-testid={`delete-coupon-${coupon.id}`}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -522,6 +515,20 @@ export default function CouponsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Force Delete Modal */}
+        <ForceDeleteModal
+          open={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setCouponToDelete(null);
+          }}
+          onConfirm={handleDeleteCoupon}
+          title="Delete Coupon"
+          itemName={couponToDelete ? `${couponToDelete.code || couponToDelete.coupon_code} (${couponToDelete.status})` : ''}
+          dependencies={couponToDelete ? { status: couponToDelete.status } : {}}
+          loading={deleting}
+        />
       </>
     );
   }
