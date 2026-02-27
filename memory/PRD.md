@@ -239,6 +239,21 @@ Build a production-ready, offline-first Progressive Web App (PWA) for a field se
 
 ## Changelog
 
+### February 27, 2026 - v5.0.0 - Attendance & Cash Management
+- Implemented comprehensive Attendance Module
+  - Worker punch-in/out with GPS tracking
+  - Admin dashboard with stats, search, filters, export
+  - Status tracking: NOT_STARTED → IN_PROGRESS → PRESENT
+- Added Worker Cash Permission Toggle
+  - Admin can enable/disable cash payments per worker
+  - Sale flow respects cash_allowed setting
+- Cash/QR Payment Tracking
+  - payment_mode field on sales (CASH/QR)
+  - Ledger shows Cash and QR/UPI columns with breakdowns
+- Campaign Deletion with safe-delete logic
+- Fixed expense bill preview (static file serving)
+- Removed Create Worker from Workers page (centralized in Login Management)
+
 ### February 26, 2026 - v4.3.0 - Razorpay Integration
 - Integrated Razorpay Payment Gateway for UPI/QR payments
 - Added 5-step worker sale flow (Coupon → Photo → Details → Branch → Payment)
