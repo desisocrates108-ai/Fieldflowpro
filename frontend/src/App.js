@@ -193,6 +193,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/attendance"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminAttendancePage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Worker Routes */}
       <Route
