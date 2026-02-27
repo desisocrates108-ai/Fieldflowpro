@@ -283,7 +283,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         is_active=user.get("is_active", True),
         area_id=user.get("area_id"),
         branch_id=user.get("branch_id"),
-        coupon_possession_count=user.get("coupon_possession_count", 0)
+        coupon_possession_count=user.get("coupon_possession_count", 0),
+        cash_allowed=user.get("cash_allowed", True)
     )
 
 # ========== Attendance Routes ==========
