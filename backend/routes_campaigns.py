@@ -1087,12 +1087,13 @@ async def delete_coupon(
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
-        action="COUPON_DELETED",
+        action="COUPON_CANCELLED",
         entity="coupon",
         entity_id=coupon_id,
         metadata={
             "coupon_code": coupon.get("coupon_code"),
-            "campaign_id": coupon.get("campaign_id")
+            "campaign_id": coupon.get("campaign_id"),
+            "action": "deleted"
         },
         request=request
     )
