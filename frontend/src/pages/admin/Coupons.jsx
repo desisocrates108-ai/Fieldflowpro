@@ -103,6 +103,41 @@ export default function CouponsPage() {
     setVerifyDialogOpen(true);
   };
 
+  const handleDeleteCoupon = async (coupon) => {
+    // Only allow deletion of AVAILABLE coupons
+    if (coupon.status !== 'AVAILABLE') {
+      toast.error(`Coupon is ${coupon.status}. Only AVAILABLE coupons can be deleted.`);
+      return;
+    }
+    
+    if (!window.confirm(
+      `⚠️ DELETE COUPON\n\n` +
+      `Code: ${coupon.code || coupon.coupon_code}\n\n` +
+      `This will permanently delete this coupon. Continue?`
+    )) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${BACKEND_URL}/api/coupons/${coupon.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message || 'Coupon deleted');
+        fetchCoupons();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to delete coupon');
+      }
+    } catch (error) {
+      toast.error('Failed to delete coupon');
+    }
+  };
+
   const filteredCoupons = coupons.filter(coupon => 
     coupon.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     coupon.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
