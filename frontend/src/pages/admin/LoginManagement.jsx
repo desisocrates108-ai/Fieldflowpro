@@ -46,6 +46,12 @@ export default function LoginManagementPage() {
   });
   const [newPassword, setNewPassword] = useState('');
   
+  // Force Delete Modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [userDependencies, setUserDependencies] = useState({});
+  const [deleting, setDeleting] = useState(false);
+  
   // Branches for assignment
   const [branches, setBranches] = useState([]);
 
