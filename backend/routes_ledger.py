@@ -220,6 +220,8 @@ async def get_all_ledgers(
             worker_name=worker["name"],
             total_coupons_sold=ledger.get("total_coupons_sold", 0),
             total_revenue=ledger.get("total_revenue", 0),
+            total_cash_collected=ledger.get("total_cash_collected", 0),
+            total_qr_collected=ledger.get("total_qr_collected", 0),
             total_advances=ledger.get("total_advances", 0),
             total_expenses=ledger.get("total_expenses", 0),
             net_payable=ledger.get("net_payable", 0),
