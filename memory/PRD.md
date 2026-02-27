@@ -135,6 +135,17 @@ Build a production-ready, offline-first Progressive Web App (PWA) for a field se
 - `POST /api/admin/users/{id}/activate` - Activate user
 - `POST /api/admin/users/{id}/deactivate` - Deactivate user
 - `DELETE /api/admin/users/{id}` - Delete user
+- `POST /api/admin/workers/{id}/toggle-cash` - Toggle cash permission
+
+### Attendance
+- `POST /api/attendance/punch-in` - Worker punch in (with GPS)
+- `POST /api/attendance/punch-out` - Worker punch out (with GPS)
+- `GET /api/attendance/today` - Worker's today attendance status
+- `GET /api/attendance/my-history` - Worker's attendance history
+- `GET /api/attendance/admin/stats` - Admin: attendance statistics
+- `GET /api/attendance/admin/workers` - Admin: all workers attendance
+- `GET /api/attendance/admin/report` - Admin: filtered attendance report
+- `GET /api/attendance/admin/export` - Admin: export to CSV
 
 ### Admin - API Keys
 - `POST /api/admin/api-keys` - Generate new API key
