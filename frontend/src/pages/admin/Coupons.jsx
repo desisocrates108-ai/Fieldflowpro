@@ -493,13 +493,13 @@ export default function CouponsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className={coupon.status === 'AVAILABLE' 
+                              className={['AVAILABLE', 'PENDING'].includes(coupon.status)
                                 ? "text-red-600 hover:bg-red-50" 
                                 : "text-zinc-400 cursor-not-allowed"
                               }
                               onClick={() => handleDeleteCoupon(coupon)}
-                              disabled={coupon.status !== 'AVAILABLE'}
-                              title={coupon.status === 'AVAILABLE' 
+                              disabled={!['AVAILABLE', 'PENDING'].includes(coupon.status)}
+                              title={['AVAILABLE', 'PENDING'].includes(coupon.status)
                                 ? "Delete coupon" 
                                 : `Cannot delete ${coupon.status} coupon`
                               }
