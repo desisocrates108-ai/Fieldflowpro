@@ -894,6 +894,9 @@ class WorkerSaleRequest(BaseModel):
     # Branch selection (mandatory)
     branch_id: str
     
+    # Payment mode (CASH or QR)
+    payment_mode: str = "CASH"  # CASH or QR
+    
     # Location
     latitude: float
     longitude: float
