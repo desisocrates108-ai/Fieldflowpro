@@ -1078,3 +1078,44 @@ class AreaIntelligence(BaseModel):
     campaign_by_geography: List[dict]
     top_areas: List[dict]
     generated_at: str
+
+
+
+# ========== Daily Attendance Models ==========
+class DailyAttendance(BaseModel):
+    """Tracks daily attendance with punch-in/out times and duration"""
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=generate_uuid)
+    worker_id: str
+    date: str  # YYYY-MM-DD format
+    punch_in_time: Optional[datetime] = None
+    punch_in_location: Optional[dict] = None  # {latitude, longitude}
+    punch_out_time: Optional[datetime] = None
+    punch_out_location: Optional[dict] = None
+    duration_minutes: Optional[int] = None  # Total working minutes
+    status: str = "ABSENT"  # PRESENT, ABSENT, IN_PROGRESS
+
+class DailyAttendanceResponse(BaseModel):
+    id: str
+    worker_id: str
+    worker_name: str
+    date: str
+    punch_in_time: Optional[datetime]
+    punch_out_time: Optional[datetime]
+    duration_minutes: Optional[int]
+    duration_formatted: Optional[str] = None  # e.g., "8h 30m"
+    status: str
+
+class AttendanceReportFilters(BaseModel):
+    start_date: Optional[str] = None  # YYYY-MM-DD
+    end_date: Optional[str] = None
+    worker_id: Optional[str] = None
+    status: Optional[str] = None  # PRESENT, ABSENT, IN_PROGRESS
+
+class AttendanceStats(BaseModel):
+    total_workers: int
+    present_today: int
+    absent_today: int
+    in_progress: int
+    total_hours_today: float
