@@ -276,6 +276,7 @@ export default function SaleCouponPage() {
         latitude: location.latitude,
         longitude: location.longitude,
         gps_accuracy: location.accuracy,
+        payment_mode: paymentMode.toUpperCase(), // CASH or UPI -> QR
         ocr_detected_name: ocrDetectedName || null,
         ocr_detected_phone: ocrDetectedPhone || null,
         ocr_confidence: ocrConfidence || null
