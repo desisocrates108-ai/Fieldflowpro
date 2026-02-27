@@ -1099,33 +1099,36 @@ async def deactivate_campaign(
 async def delete_coupon(
     coupon_id: str,
     request: Request,
+    force: bool = False,
     current_user: dict = Depends(require_roles("admin"))
 ):
     """
-    HARD DELETE a single coupon - only if status allows deletion.
-    Coupons with activity (ISSUED, SOLD, ENCASHED, REDEEMED, UTILIZED, ACTIVE, VERIFIED) cannot be deleted.
-    Only AVAILABLE or PENDING coupons can be deleted.
+    Delete a single coupon.
+    - Normal delete: Only AVAILABLE, PENDING, CANCELLED coupons
+    - Force delete (force=true): Delete ANY coupon regardless of status
     """
     coupon = await db.campaign_coupons.find_one({"id": coupon_id}, {"_id": 0})
     if not coupon:
         raise HTTPException(status_code=404, detail="Coupon not found")
     
-    # Only allow deletion of AVAILABLE or PENDING coupons
-    allowed_statuses = ["AVAILABLE", "PENDING"]
-    if coupon.get("status") not in allowed_statuses:
+    status = coupon.get("status")
+    allowed_statuses = ["AVAILABLE", "PENDING", "CANCELLED"]
+    
+    if status not in allowed_statuses and not force:
         raise HTTPException(
             status_code=400,
-            detail=f"Coupon is {coupon.get('status')}. Only AVAILABLE/PENDING coupons can be deleted."
+            detail=f"Coupon is {status}. Use force=true to delete anyway."
         )
     
     # Delete the coupon
     await db.campaign_coupons.delete_one({"id": coupon_id})
     
     # Update campaign's total_coupons count
-    await db.campaigns.update_one(
-        {"id": coupon["campaign_id"]},
-        {"$inc": {"total_coupons": -1}}
-    )
+    if coupon.get("campaign_id"):
+        await db.campaigns.update_one(
+            {"id": coupon["campaign_id"]},
+            {"$inc": {"total_coupons": -1}}
+        )
     
     await create_audit_log(
         user_id=current_user["sub"],
@@ -1134,11 +1137,16 @@ async def delete_coupon(
         entity="coupon",
         entity_id=coupon_id,
         metadata={
-            "coupon_code": coupon.get("coupon_code"),
+            "coupon_code": coupon.get("coupon_code") or coupon.get("code"),
             "campaign_id": coupon.get("campaign_id"),
-            "action": "deleted"
+            "original_status": status,
+            "force_delete": force
         },
         request=request
     )
     
-    return {"message": f"Coupon {coupon.get('coupon_code')} permanently deleted"}
+    msg = f"Coupon {coupon.get('coupon_code') or coupon.get('code')} permanently deleted"
+    if force and status not in allowed_statuses:
+        msg += f" (FORCE DELETE: was {status})"
+    
+    return {"message": msg}
