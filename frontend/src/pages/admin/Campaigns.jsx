@@ -201,6 +201,41 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleDeleteCampaign = async (campaign) => {
+    // Check if campaign has any sales
+    if (campaign.sold_count > 0) {
+      // Only allow deactivation
+      if (!window.confirm(`Campaign "${campaign.name}" has ${campaign.sold_count} sold coupons. Do you want to deactivate it instead?`)) {
+        return;
+      }
+      await updateCampaignStatus(campaign.id, 'INACTIVE');
+      return;
+    }
+    
+    // No sales - allow delete
+    if (!window.confirm(`Are you sure you want to permanently delete campaign "${campaign.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/campaigns/${campaign.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast.success('Campaign deleted successfully');
+        fetchCampaigns();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to delete campaign');
+      }
+    } catch (error) {
+      toast.error('Failed to delete campaign');
+    }
+  };
+
   const filteredCampaigns = campaigns.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.prefix.toLowerCase().includes(searchQuery.toLowerCase())
