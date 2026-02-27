@@ -36,17 +36,17 @@ export default function WorkerDashboard() {
     try {
       const token = localStorage.getItem('access_token');
       
-      // Fetch attendance
+      // Fetch attendance - new API returns single object
       const attendanceRes = await attendanceAPI.getToday();
-      const records = attendanceRes.data;
-      const punchIn = records.find(r => r.type === 'PUNCH_IN');
-      const punchOut = records.find(r => r.type === 'PUNCH_OUT');
+      const data = attendanceRes.data;
       
       setAttendance({
-        punchedIn: !!punchIn,
-        punchedOut: !!punchOut,
-        punchInTime: punchIn?.timestamp,
-        punchOutTime: punchOut?.timestamp
+        punchedIn: !!data.punch_in_time,
+        punchedOut: !!data.punch_out_time,
+        punchInTime: data.punch_in_time,
+        punchOutTime: data.punch_out_time,
+        status: data.status,
+        durationFormatted: data.duration_formatted
       });
       
       // Fetch coupon summary
