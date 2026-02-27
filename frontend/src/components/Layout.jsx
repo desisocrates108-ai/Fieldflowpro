@@ -36,6 +36,7 @@ const getNavItems = (role) => {
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
       { path: '/admin/login-management', icon: UserCog, label: 'Login Management' },
       { path: '/admin/workers', icon: Users, label: 'Workers' },
+      { path: '/admin/attendance', icon: Clock, label: 'Attendance' },
       { path: '/admin/campaigns', icon: Package, label: 'Campaigns' },
       { path: '/admin/ledger', icon: Receipt, label: 'Ledger' },
       { path: '/admin/coupons', icon: Ticket, label: 'Coupons' },
