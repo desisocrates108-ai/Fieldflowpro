@@ -220,6 +220,8 @@ export default function AdminLedgerPage() {
   const totalPayable = ledgers.reduce((acc, l) => acc + l.net_payable, 0);
   const totalExpenses = ledgers.reduce((acc, l) => acc + l.total_expenses, 0);
   const totalAdvances = ledgers.reduce((acc, l) => acc + l.total_advances, 0);
+  const totalCash = ledgers.reduce((acc, l) => acc + (l.total_cash_collected || 0), 0);
+  const totalQR = ledgers.reduce((acc, l) => acc + (l.total_qr_collected || 0), 0);
 
   return (
     <Layout>
