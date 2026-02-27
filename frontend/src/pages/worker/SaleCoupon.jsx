@@ -75,7 +75,27 @@ export default function SaleCouponPage() {
   useEffect(() => {
     fetchBranches();
     getCurrentLocation();
+    fetchUserInfo();
   }, []);
+
+  const fetchUserInfo = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        setCashAllowed(userData.cash_allowed !== false);
+        // If cash is not allowed, default to QR payment
+        if (userData.cash_allowed === false) {
+          setPaymentMode('upi');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user info');
+    }
+  };
 
   const fetchBranches = async () => {
     try {
