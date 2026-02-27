@@ -1002,12 +1002,13 @@ async def delete_campaign(
     await create_audit_log(
         user_id=current_user["sub"],
         user_role=current_user["role"],
-        action="CAMPAIGN_HARD_DELETED",
+        action="CAMPAIGN_DELETED",
         entity="campaign",
         entity_id=campaign_id,
         metadata={
             "campaign_name": campaign["name"],
-            "coupons_deleted": total_coupons
+            "coupons_deleted": total_coupons,
+            "delete_type": "hard"
         },
         request=request
     )
