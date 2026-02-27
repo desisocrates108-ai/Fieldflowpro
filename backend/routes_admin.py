@@ -317,23 +317,52 @@ async def toggle_worker_cash_permission(
 async def delete_user(
     user_id: str,
     request: Request,
+    force: bool = False,
     current_user: dict = Depends(require_roles("admin"))
 ):
-    """Delete a user - Admin can delete any non-admin user"""
+    """
+    Delete a user - Admin can delete any non-admin user.
+    Use force=true to delete even with dependencies (cleans up all related data).
+    """
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Only restriction: Cannot delete admin users
+    # Only restriction: Cannot delete admin users (except with force for non-last admin)
     if user.get("role") == "admin":
-        # Check if this is the last admin
         admin_count = await db.users.count_documents({"role": "admin"})
         if admin_count <= 1:
             raise HTTPException(status_code=403, detail="Cannot delete the last admin")
-        raise HTTPException(status_code=403, detail="Cannot delete admin users")
+        if not force:
+            raise HTTPException(status_code=403, detail="Cannot delete admin users without force flag")
     
-    # Delete the user - no dependency checks, admin has full control
     role = user.get("role")
+    deleted_data = {"user": user["email"]}
+    
+    # Force delete - clean up all dependencies
+    if force:
+        if role == "worker":
+            # Delete worker's sales (coupons sold by this worker)
+            sales_deleted = await db.campaign_coupons.delete_many({"sold_by_worker_id": user_id})
+            deleted_data["sales_deleted"] = sales_deleted.deleted_count
+            # Delete worker's ledger
+            await db.worker_ledgers.delete_many({"worker_id": user_id})
+            await db.ledger_transactions.delete_many({"worker_id": user_id})
+            # Delete worker's attendance
+            await db.daily_attendance.delete_many({"worker_id": user_id})
+            await db.attendance.delete_many({"worker_id": user_id})
+            # Delete worker's expenses
+            await db.expenses.delete_many({"worker_id": user_id})
+        elif role == "branch":
+            # Delete branch's encashments
+            encash_deleted = await db.encashments.delete_many({"encashed_by": user_id})
+            deleted_data["encashments_deleted"] = encash_deleted.deleted_count
+        elif role == "cre":
+            # Delete CRE's call logs
+            calls_deleted = await db.cre_call_logs.delete_many({"cre_id": user_id})
+            deleted_data["call_logs_deleted"] = calls_deleted.deleted_count
+    
+    # Delete the user
     await db.users.delete_one({"id": user_id})
     
     await create_audit_log(
@@ -342,11 +371,63 @@ async def delete_user(
         action="USER_DELETED",
         entity="user",
         entity_id=user_id,
-        metadata={"email": user["email"], "role": role},
+        metadata={
+            "email": user["email"], 
+            "role": role,
+            "force_delete": force,
+            "deleted_data": deleted_data
+        },
         request=request
     )
     
-    return {"message": "User deleted successfully"}
+    return {
+        "message": f"User '{user['email']}' deleted successfully" + (" (force delete)" if force else ""),
+        "deleted_data": deleted_data
+    }
+
+
+@router.get("/users/{user_id}/dependencies")
+async def get_user_dependencies(
+    user_id: str,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get dependencies count for a user before deletion"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    role = user.get("role")
+    dependencies = {"has_dependencies": False}
+    
+    if role == "worker":
+        sales_count = await db.campaign_coupons.count_documents({"sold_by_worker_id": user_id})
+        expenses_count = await db.expenses.count_documents({"worker_id": user_id})
+        attendance_count = await db.daily_attendance.count_documents({"worker_id": user_id})
+        dependencies = {
+            "has_dependencies": sales_count > 0 or expenses_count > 0,
+            "sales": sales_count,
+            "expenses": expenses_count,
+            "attendance_records": attendance_count
+        }
+    elif role == "branch":
+        encash_count = await db.encashments.count_documents({"encashed_by": user_id})
+        dependencies = {
+            "has_dependencies": encash_count > 0,
+            "encashments": encash_count
+        }
+    elif role == "cre":
+        call_count = await db.cre_call_logs.count_documents({"cre_id": user_id})
+        dependencies = {
+            "has_dependencies": call_count > 0,
+            "call_logs": call_count
+        }
+    
+    return {
+        "user_id": user_id,
+        "email": user["email"],
+        "role": role,
+        "dependencies": dependencies
+    }
 
 
 # ========== Legacy Worker Management (kept for backward compatibility) ==========
