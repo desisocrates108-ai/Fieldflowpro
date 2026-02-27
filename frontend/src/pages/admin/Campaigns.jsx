@@ -574,10 +574,9 @@ export default function CampaignsPage() {
                             size="sm"
                             variant="outline"
                             className="text-red-600 hover:bg-red-50"
-                            onClick={() => handleDeleteCampaign(campaign)}
-                            title="Delete permanently (only if no activity)"
+                            onClick={() => openDeleteModal(campaign)}
+                            title="Delete campaign"
                             data-testid={`delete-campaign-${campaign.id}`}
-                            disabled={(campaign.sold_count || 0) + (campaign.issued_count || 0) > 0}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -590,6 +589,20 @@ export default function CampaignsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Force Delete Modal */}
+        <ForceDeleteModal
+          open={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setCampaignToDelete(null);
+          }}
+          onConfirm={handleDeleteCampaign}
+          title="Delete Campaign"
+          itemName={campaignToDelete?.name || ''}
+          dependencies={campaignDependencies}
+          loading={deleting}
+        />
 
         {/* View Campaign Coupons Dialog */}
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
