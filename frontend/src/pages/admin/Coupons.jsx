@@ -478,16 +478,37 @@ export default function CouponsPage() {
                         {formatDateTime(coupon.issued_at)}
                       </TableCell>
                       <TableCell>
-                        {coupon.status === 'PENDING' && isCRE && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openVerifyDialog(coupon)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Review
-                          </Button>
-                        )}
+                        <div className="flex gap-2">
+                          {coupon.status === 'PENDING' && isCRE && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openVerifyDialog(coupon)}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Review
+                            </Button>
+                          )}
+                          {user?.role === 'admin' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={coupon.status === 'AVAILABLE' 
+                                ? "text-red-600 hover:bg-red-50" 
+                                : "text-zinc-400 cursor-not-allowed"
+                              }
+                              onClick={() => handleDeleteCoupon(coupon)}
+                              disabled={coupon.status !== 'AVAILABLE'}
+                              title={coupon.status === 'AVAILABLE' 
+                                ? "Delete coupon" 
+                                : `Cannot delete ${coupon.status} coupon`
+                              }
+                              data-testid={`delete-coupon-${coupon.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
