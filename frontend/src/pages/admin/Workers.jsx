@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { 
   Plus, Users, Search, MoreVertical, Trash2, 
   Ban, CheckCircle, Key, IndianRupee, Loader2,
-  RefreshCcw, User, Mail, Phone, MapPin
+  RefreshCcw, User, Mail, Phone, MapPin, Banknote
 } from 'lucide-react';
 import { toast } from 'sonner';
 
