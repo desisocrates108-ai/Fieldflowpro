@@ -241,7 +241,7 @@ export default function AdminLedgerPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -250,7 +250,20 @@ export default function AdminLedgerPage() {
                 </div>
                 <div>
                   <p className="text-sm text-zinc-500">Total Revenue</p>
-                  <p className="text-2xl font-bold">₹{totalRevenue.toLocaleString()}</p>
+                  <p className="text-xl font-bold">₹{totalRevenue.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <IndianRupee className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Cash Collected</p>
+                  <p className="text-xl font-bold">₹{totalCash.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -262,21 +275,8 @@ export default function AdminLedgerPage() {
                   <IndianRupee className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-zinc-500">Total Advances</p>
-                  <p className="text-2xl font-bold">₹{totalAdvances.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <Receipt className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-zinc-500">Total Expenses</p>
-                  <p className="text-2xl font-bold">₹{totalExpenses.toLocaleString()}</p>
+                  <p className="text-sm text-zinc-500">QR/UPI Collected</p>
+                  <p className="text-xl font-bold">₹{totalQR.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -288,8 +288,34 @@ export default function AdminLedgerPage() {
                   <IndianRupee className="h-5 w-5 text-purple-600" />
                 </div>
                 <div>
+                  <p className="text-sm text-zinc-500">Advances</p>
+                  <p className="text-xl font-bold">₹{totalAdvances.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <Receipt className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-500">Expenses</p>
+                  <p className="text-xl font-bold">₹{totalExpenses.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <IndianRupee className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
                   <p className="text-sm text-zinc-500">Net Payable</p>
-                  <p className="text-2xl font-bold">₹{totalPayable.toLocaleString()}</p>
+                  <p className="text-xl font-bold">₹{totalPayable.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
