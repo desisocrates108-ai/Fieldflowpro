@@ -277,43 +277,6 @@ export default function WorkersPage() {
             </Button>
           </div>
         </div>
-                      <Input
-                        placeholder="9876543210"
-                        value={newWorker.phone}
-                        onChange={(e) => setNewWorker({ ...newWorker, phone: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Area</Label>
-                      <Select
-                        value={newWorker.area_id}
-                        onValueChange={(v) => setNewWorker({ ...newWorker, area_id: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select area" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {areas.map((area) => (
-                            <SelectItem key={area.id} value={area.id}>
-                              {area.name}, {area.city}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreateWorker} disabled={creating} data-testid="confirm-create-worker-btn">
-                    {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                    Create Worker
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
