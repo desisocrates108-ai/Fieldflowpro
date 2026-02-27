@@ -208,43 +208,52 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleDeleteCampaign = async (campaign) => {
-    // Hard delete - only allowed if no activity
-    const totalCoupons = campaign.total_coupons || 0;
-    const activityCount = (campaign.sold_count || 0) + (campaign.issued_count || 0);
-    
-    if (activityCount > 0) {
-      toast.error(`Campaign has ${activityCount} coupons with activity. Only deactivation is allowed.`);
-      return;
-    }
-    
-    if (!window.confirm(
-      `⚠️ PERMANENT DELETE\n\n` +
-      `Campaign: "${campaign.name}"\n` +
-      `Total Coupons: ${totalCoupons}\n\n` +
-      `This will permanently delete the campaign and all ${totalCoupons} coupons.\n\n` +
-      `This action CANNOT be undone. Continue?`
-    )) {
-      return;
-    }
-    
+  const openDeleteModal = async (campaign) => {
+    setCampaignToDelete(campaign);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_URL}/api/campaigns/${campaign.id}`, {
+      const response = await fetch(`${API_URL}/api/campaigns/${campaign.id}/dependencies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCampaignDependencies(data.dependencies || {});
+      }
+    } catch (error) {
+      setCampaignDependencies({
+        total_coupons: campaign.total_coupons || 0,
+        sold: campaign.sold_count || 0
+      });
+    }
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteCampaign = async (forceDelete) => {
+    if (!campaignToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const url = `${API_URL}/api/campaigns/${campaignToDelete.id}${forceDelete ? '?force=true' : ''}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (response.ok) {
         const data = await response.json();
-        toast.success(data.message || 'Campaign permanently deleted');
+        toast.success(data.message || 'Campaign deleted');
         fetchCampaigns();
+        setDeleteModalOpen(false);
+        setCampaignToDelete(null);
       } else {
         const error = await response.json();
         toast.error(error.detail || 'Failed to delete campaign');
       }
     } catch (error) {
       toast.error('Failed to delete campaign');
+    } finally {
+      setDeleting(false);
     }
   };
 
