@@ -202,18 +202,22 @@ export default function CampaignsPage() {
   };
 
   const handleDeleteCampaign = async (campaign) => {
-    // Check if campaign has any sales
-    if (campaign.sold_count > 0) {
-      // Only allow deactivation
-      if (!window.confirm(`Campaign "${campaign.name}" has ${campaign.sold_count} sold coupons. Do you want to deactivate it instead?`)) {
-        return;
-      }
-      await updateCampaignStatus(campaign.id, 'INACTIVE');
+    // Hard delete - only allowed if no activity
+    const totalCoupons = campaign.total_coupons || 0;
+    const activityCount = (campaign.sold_count || 0) + (campaign.issued_count || 0);
+    
+    if (activityCount > 0) {
+      toast.error(`Campaign has ${activityCount} coupons with activity. Only deactivation is allowed.`);
       return;
     }
     
-    // No sales - allow delete
-    if (!window.confirm(`Are you sure you want to permanently delete campaign "${campaign.name}"? This action cannot be undone.`)) {
+    if (!window.confirm(
+      `⚠️ PERMANENT DELETE\n\n` +
+      `Campaign: "${campaign.name}"\n` +
+      `Total Coupons: ${totalCoupons}\n\n` +
+      `This will permanently delete the campaign and all ${totalCoupons} coupons.\n\n` +
+      `This action CANNOT be undone. Continue?`
+    )) {
       return;
     }
     
@@ -225,7 +229,8 @@ export default function CampaignsPage() {
       });
       
       if (response.ok) {
-        toast.success('Campaign deleted successfully');
+        const data = await response.json();
+        toast.success(data.message || 'Campaign permanently deleted');
         fetchCampaigns();
       } else {
         const error = await response.json();
@@ -233,6 +238,35 @@ export default function CampaignsPage() {
       }
     } catch (error) {
       toast.error('Failed to delete campaign');
+    }
+  };
+
+  const handleDeactivateCampaign = async (campaign) => {
+    if (campaign.status === 'INACTIVE') {
+      toast.info('Campaign is already inactive');
+      return;
+    }
+    
+    if (!window.confirm(`Deactivate campaign "${campaign.name}"? It will no longer be available for new sales.`)) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/campaigns/${campaign.id}/deactivate`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast.success('Campaign deactivated');
+        fetchCampaigns();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to deactivate campaign');
+      }
+    } catch (error) {
+      toast.error('Failed to deactivate campaign');
     }
   };
 
