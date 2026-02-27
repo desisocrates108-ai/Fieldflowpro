@@ -1134,5 +1134,3 @@ async def delete_coupon(
     )
     
     return {"message": f"Coupon {coupon.get('coupon_code')} permanently deleted"}
-    
-    return {"message": f"Campaign '{campaign['name']}' and its coupons have been deleted"}
