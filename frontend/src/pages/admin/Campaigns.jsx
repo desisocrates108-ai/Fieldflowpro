@@ -28,6 +28,12 @@ export default function CampaignsPage() {
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [creating, setCreating] = useState(false);
+  
+  // Delete Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [campaignToDelete, setCampaignToDelete] = useState(null);
+  const [campaignDependencies, setCampaignDependencies] = useState({});
+  const [deleting, setDeleting] = useState(false);
 
   // Form state - new range-based logic
   const [formData, setFormData] = useState({
