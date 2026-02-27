@@ -1104,12 +1104,13 @@ async def get_nearest_branch(latitude: float, longitude: float, current_user: di
 async def delete_branch(
     branch_id: str,
     request: Request,
+    force: bool = False,
     current_user: dict = Depends(require_roles("admin"))
 ):
     """
-    Delete or deactivate a branch.
-    - If branch has dependencies (workers, coupons, encashments), only deactivate
-    - If no dependencies, allow permanent delete
+    Delete a branch.
+    - Normal delete: Deactivates if has dependencies, deletes if no dependencies
+    - Force delete (force=true): Deletes branch + ALL dependencies (coupons, encashments, unassigns workers)
     """
     branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
     if not branch:
@@ -1121,8 +1122,46 @@ async def delete_branch(
     encashments = await db.encashments.count_documents({"branch_id": branch_id})
     
     has_dependencies = assigned_workers > 0 or sold_coupons > 0 or encashments > 0
+    deleted_data = {"branch": branch["name"]}
     
-    if has_dependencies:
+    if force and has_dependencies:
+        # FORCE DELETE - remove all dependencies
+        # Unassign workers from this branch
+        await db.users.update_many({"branch_id": branch_id}, {"$unset": {"branch_id": ""}})
+        deleted_data["workers_unassigned"] = assigned_workers
+        
+        # Delete coupons sold at this branch
+        coupon_result = await db.campaign_coupons.delete_many({"branch_id": branch_id})
+        deleted_data["coupons_deleted"] = coupon_result.deleted_count
+        
+        # Delete encashments at this branch
+        encash_result = await db.encashments.delete_many({"branch_id": branch_id})
+        deleted_data["encashments_deleted"] = encash_result.deleted_count
+        
+        # Delete the branch
+        await db.branches.delete_one({"id": branch_id})
+        
+        await create_audit_log(
+            user_id=current_user["sub"],
+            user_role=current_user["role"],
+            action="USER_DELETED",
+            entity="branch",
+            entity_id=branch_id,
+            metadata={
+                "action": "force_deleted",
+                "name": branch["name"],
+                "deleted_data": deleted_data
+            },
+            request=request
+        )
+        
+        return {
+            "message": f"Branch '{branch['name']}' FORCE DELETED with all dependencies",
+            "action": "FORCE_DELETED",
+            "deleted_data": deleted_data
+        }
+    
+    if has_dependencies and not force:
         # Soft delete - deactivate only
         await db.branches.update_one(
             {"id": branch_id},
@@ -1146,7 +1185,7 @@ async def delete_branch(
         )
         
         return {
-            "message": "Branch deactivated (has dependencies)",
+            "message": "Branch deactivated (has dependencies). Use force=true to delete anyway.",
             "action": "DEACTIVATED",
             "dependencies": {
                 "assigned_workers": assigned_workers,
@@ -1169,9 +1208,35 @@ async def delete_branch(
         )
         
         return {
-            "message": "Branch deleted permanently",
+            "message": f"Branch '{branch['name']}' deleted permanently",
             "action": "DELETED"
         }
+
+
+@api_router.get("/branches/{branch_id}/dependencies")
+async def get_branch_dependencies(
+    branch_id: str,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get dependencies count for a branch before deletion"""
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    assigned_workers = await db.users.count_documents({"branch_id": branch_id})
+    sold_coupons = await db.campaign_coupons.count_documents({"branch_id": branch_id})
+    encashments = await db.encashments.count_documents({"branch_id": branch_id})
+    
+    return {
+        "branch_id": branch_id,
+        "branch_name": branch["name"],
+        "has_dependencies": assigned_workers > 0 or sold_coupons > 0 or encashments > 0,
+        "dependencies": {
+            "assigned_workers": assigned_workers,
+            "sold_coupons": sold_coupons,
+            "encashments": encashments
+        }
+    }
 
 
 @api_router.patch("/branches/{branch_id}/activate")
