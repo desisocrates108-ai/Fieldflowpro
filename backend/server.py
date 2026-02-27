@@ -287,121 +287,14 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         cash_allowed=user.get("cash_allowed", True)
     )
 
-# ========== Attendance Routes ==========
-@api_router.post("/attendance/punch-in", response_model=AttendanceResponse)
-async def punch_in(data: AttendanceCreate, request: Request, current_user: dict = Depends(require_roles("worker", "admin"))):
-    worker_id = current_user["sub"]
-    
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    existing_punch = await db.attendance.find_one({
-        "worker_id": worker_id,
-        "type": "PUNCH_IN",
-        "timestamp": {"$gte": today_start.isoformat()}
-    })
-    
-    if existing_punch:
-        raise HTTPException(status_code=400, detail="Already punched in today")
-    
-    attendance = Attendance(
-        worker_id=worker_id,
-        type="PUNCH_IN",
-        latitude=data.latitude,
-        longitude=data.longitude,
-        accuracy=data.accuracy
-    )
-    
-    doc = attendance.model_dump()
-    doc["timestamp"] = doc["timestamp"].isoformat()
-    await db.attendance.insert_one(doc)
-    
-    await create_audit_log(
-        user_id=worker_id,
-        user_role=current_user["role"],
-        action="PUNCH_IN",
-        entity="attendance",
-        entity_id=attendance.id,
-        metadata={"latitude": data.latitude, "longitude": data.longitude},
-        request=request
-    )
-    
-    return AttendanceResponse(
-        id=attendance.id,
-        worker_id=attendance.worker_id,
-        type=attendance.type,
-        latitude=attendance.latitude,
-        longitude=attendance.longitude,
-        timestamp=attendance.timestamp,
-        is_valid=attendance.is_valid,
-        remarks=attendance.remarks
-    )
+# ========== OLD Attendance Routes (DISABLED - moved to routes_attendance.py) ==========
+# The new attendance system in routes_attendance.py provides:
+# - DailyAttendance model with punch-in/out times and duration tracking
+# - Admin dashboard with attendance stats and reports
+# - Export functionality
+# - Better "IN_PROGRESS" status tracking for workers currently working
 
-@api_router.post("/attendance/punch-out", response_model=AttendanceResponse)
-async def punch_out(data: AttendanceCreate, request: Request, current_user: dict = Depends(require_roles("worker", "admin"))):
-    worker_id = current_user["sub"]
-    
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    punch_in = await db.attendance.find_one({
-        "worker_id": worker_id,
-        "type": "PUNCH_IN",
-        "timestamp": {"$gte": today_start.isoformat()}
-    })
-    
-    if not punch_in:
-        raise HTTPException(status_code=400, detail="Must punch in first")
-    
-    punch_out_exists = await db.attendance.find_one({
-        "worker_id": worker_id,
-        "type": "PUNCH_OUT",
-        "timestamp": {"$gte": today_start.isoformat()}
-    })
-    
-    if punch_out_exists:
-        raise HTTPException(status_code=400, detail="Already punched out today")
-    
-    attendance = Attendance(
-        worker_id=worker_id,
-        type="PUNCH_OUT",
-        latitude=data.latitude,
-        longitude=data.longitude,
-        accuracy=data.accuracy
-    )
-    
-    doc = attendance.model_dump()
-    doc["timestamp"] = doc["timestamp"].isoformat()
-    await db.attendance.insert_one(doc)
-    
-    await create_audit_log(
-        user_id=worker_id,
-        user_role=current_user["role"],
-        action="PUNCH_OUT",
-        entity="attendance",
-        entity_id=attendance.id,
-        metadata={"latitude": data.latitude, "longitude": data.longitude},
-        request=request
-    )
-    
-    return AttendanceResponse(
-        id=attendance.id,
-        worker_id=attendance.worker_id,
-        type=attendance.type,
-        latitude=attendance.latitude,
-        longitude=attendance.longitude,
-        timestamp=attendance.timestamp,
-        is_valid=attendance.is_valid,
-        remarks=attendance.remarks
-    )
-
-@api_router.get("/attendance/today")
-async def get_today_attendance(current_user: dict = Depends(require_roles("worker", "admin"))):
-    worker_id = current_user["sub"]
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    records = await db.attendance.find({
-        "worker_id": worker_id,
-        "timestamp": {"$gte": today_start.isoformat()}
-    }, {"_id": 0}).to_list(10)
-    
-    return records
+# Old routes have been commented out - use /api/attendance/* from routes_attendance.py instead
 
 # ========== NEW: Coupon Issue Endpoint (Photo Capture) ==========
 @api_router.post("/coupons/issue")
