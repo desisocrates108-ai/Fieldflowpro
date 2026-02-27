@@ -159,6 +159,9 @@ Build a production-ready, offline-first Progressive Web App (PWA) for a field se
 
 ### Campaigns
 - `POST /api/campaigns` - Create campaign with coupon range
+- `GET /api/campaigns` - List all campaigns
+- `PATCH /api/campaigns/{id}` - Update campaign status
+- `DELETE /api/campaigns/{id}` - Delete campaign (safe-delete)
 - `GET /api/campaigns` - List campaigns
 - `GET /api/campaigns/{id}/coupons` - Get campaign coupons
 - `POST /api/campaigns/validate-code` - Validate coupon code
