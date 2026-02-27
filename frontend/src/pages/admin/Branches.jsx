@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
 import { Alert, AlertDescription } from '../../components/ui/alert';
+import ForceDeleteModal from '../../components/ForceDeleteModal';
 import { Loader2, Building2, Plus, MapPin, Phone, Trash2, Power, AlertTriangle, CheckCircle } from 'lucide-react';
 import { formatDateTime } from '../../lib/utils';
 import { toast } from 'sonner';
@@ -32,7 +33,7 @@ export default function BranchesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [deleteResult, setDeleteResult] = useState(null);
+  const [branchDependencies, setBranchDependencies] = useState({});
 
   const fetchBranches = async () => {
     try {
