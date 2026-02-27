@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import ForceDeleteModal from '../../components/ForceDeleteModal';
 import { 
   Plus, Users, Search, Loader2, RefreshCcw,
   UserCheck, UserX, Key, Trash2, Edit, Eye, EyeOff,
