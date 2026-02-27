@@ -964,37 +964,35 @@ async def get_worker_sales(
 async def delete_campaign(
     campaign_id: str,
     request: Request,
+    force: bool = False,
     current_user: dict = Depends(require_roles("admin"))
 ):
     """
-    HARD DELETE a campaign - only if NO activity exists:
-    - No sold coupons
-    - No issued coupons
-    - No encashed coupons
-    - No redeemed coupons
-    If any activity exists, deletion is blocked - admin must use deactivate instead.
+    Delete a campaign.
+    - Normal delete: Only works if NO activity exists
+    - Force delete (force=true): Deletes campaign + ALL coupons + related sales data
     """
     campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Check for ANY activity (not just sold/issued)
+    # Check for ANY activity
     activity_count = await db.campaign_coupons.count_documents({
         "campaign_id": campaign_id,
         "status": {"$in": ["SOLD", "ISSUED", "ENCASHED", "REDEEMED", "UTILIZED"]}
     })
     
-    if activity_count > 0:
+    if activity_count > 0 and not force:
         raise HTTPException(
             status_code=400,
-            detail=f"Campaign has {activity_count} coupons with activity. Only deactivation is allowed."
+            detail=f"Campaign has {activity_count} coupons with activity. Use force=true to delete anyway."
         )
     
     # Get total coupons count for audit
     total_coupons = await db.campaign_coupons.count_documents({"campaign_id": campaign_id})
     
     # HARD DELETE - remove all coupons associated with this campaign
-    await db.campaign_coupons.delete_many({"campaign_id": campaign_id})
+    deleted_result = await db.campaign_coupons.delete_many({"campaign_id": campaign_id})
     
     # Delete the campaign document
     await db.campaigns.delete_one({"id": campaign_id})
@@ -1007,13 +1005,56 @@ async def delete_campaign(
         entity_id=campaign_id,
         metadata={
             "campaign_name": campaign["name"],
-            "coupons_deleted": total_coupons,
-            "delete_type": "hard"
+            "coupons_deleted": deleted_result.deleted_count,
+            "activity_coupons_deleted": activity_count if force else 0,
+            "force_delete": force
         },
         request=request
     )
     
-    return {"message": f"Campaign '{campaign['name']}' and {total_coupons} coupons permanently deleted"}
+    msg = f"Campaign '{campaign['name']}' and {deleted_result.deleted_count} coupons permanently deleted"
+    if force and activity_count > 0:
+        msg += f" (FORCE DELETE: {activity_count} active coupons removed)"
+    
+    return {"message": msg, "coupons_deleted": deleted_result.deleted_count}
+
+
+@router.get("/{campaign_id}/dependencies")
+async def get_campaign_dependencies(
+    campaign_id: str,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Get dependencies count for a campaign before deletion"""
+    campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Count coupons by status
+    total_coupons = await db.campaign_coupons.count_documents({"campaign_id": campaign_id})
+    available = await db.campaign_coupons.count_documents({"campaign_id": campaign_id, "status": "AVAILABLE"})
+    sold = await db.campaign_coupons.count_documents({"campaign_id": campaign_id, "status": "SOLD"})
+    issued = await db.campaign_coupons.count_documents({"campaign_id": campaign_id, "status": "ISSUED"})
+    encashed = await db.campaign_coupons.count_documents({"campaign_id": campaign_id, "status": "ENCASHED"})
+    redeemed = await db.campaign_coupons.count_documents({"campaign_id": campaign_id, "status": "REDEEMED"})
+    utilized = await db.campaign_coupons.count_documents({"campaign_id": campaign_id, "status": "UTILIZED"})
+    
+    activity_count = sold + issued + encashed + redeemed + utilized
+    
+    return {
+        "campaign_id": campaign_id,
+        "campaign_name": campaign["name"],
+        "has_dependencies": activity_count > 0,
+        "dependencies": {
+            "total_coupons": total_coupons,
+            "available": available,
+            "sold": sold,
+            "issued": issued,
+            "encashed": encashed,
+            "redeemed": redeemed,
+            "utilized": utilized,
+            "activity_count": activity_count
+        }
+    }
 
 
 @router.patch("/{campaign_id}/deactivate")
