@@ -50,7 +50,8 @@ async def update_worker_ledger(
     amount: float,
     description: str,
     reference_id: Optional[str] = None,
-    created_by: Optional[str] = None
+    created_by: Optional[str] = None,
+    payment_mode: Optional[str] = None  # CASH or QR
 ):
     """Update worker ledger and create transaction record"""
     ledger = await get_or_create_ledger(worker_id)
@@ -61,6 +62,11 @@ async def update_worker_ledger(
     if transaction_type == "SALE":
         update_data["total_coupons_sold"] = ledger.get("total_coupons_sold", 0) + 1
         update_data["total_revenue"] = ledger.get("total_revenue", 0) + amount
+        # Track payment mode
+        if payment_mode == "CASH":
+            update_data["total_cash_collected"] = ledger.get("total_cash_collected", 0) + amount
+        elif payment_mode == "QR":
+            update_data["total_qr_collected"] = ledger.get("total_qr_collected", 0) + amount
     elif transaction_type == "ADVANCE":
         update_data["total_advances"] = ledger.get("total_advances", 0) + amount
     elif transaction_type == "EXPENSE":
@@ -89,6 +95,8 @@ async def update_worker_ledger(
     
     trans_doc = transaction.model_dump()
     trans_doc["created_at"] = trans_doc["created_at"].isoformat()
+    if payment_mode:
+        trans_doc["payment_mode"] = payment_mode
     await db.ledger_transactions.insert_one(trans_doc)
     
     return update_data
