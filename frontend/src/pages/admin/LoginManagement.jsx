@@ -227,27 +227,49 @@ export default function LoginManagementPage() {
     }
   };
 
-  const deleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user? This cannot be undone.')) {
-      return;
-    }
-
+  const openDeleteModal = async (user) => {
+    setUserToDelete(user);
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+      const response = await fetch(`${API_URL}/api/admin/users/${user.id}/dependencies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserDependencies(data.dependencies || {});
+      }
+    } catch (error) {
+      setUserDependencies({});
+    }
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteUser = async (forceDelete) => {
+    if (!userToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const url = `${API_URL}/api/admin/users/${userToDelete.id}${forceDelete ? '?force=true' : ''}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
-        toast.success('User deleted successfully');
+        const data = await response.json();
+        toast.success(data.message || 'User deleted successfully');
         fetchUsers();
+        setDeleteModalOpen(false);
+        setUserToDelete(null);
       } else {
         const error = await response.json();
         toast.error(error.detail || 'Failed to delete user');
       }
     } catch (error) {
       toast.error('Failed to delete user');
+    } finally {
+      setDeleting(false);
     }
   };
 
