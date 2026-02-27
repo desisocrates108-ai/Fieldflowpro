@@ -277,6 +277,42 @@ async def deactivate_user(
     return {"message": "User deactivated successfully"}
 
 
+@router.post("/workers/{worker_id}/toggle-cash")
+async def toggle_worker_cash_permission(
+    worker_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Toggle worker's ability to accept cash payments"""
+    user = await db.users.find_one({"id": worker_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    
+    if user.get("role") != "worker":
+        raise HTTPException(status_code=400, detail="This endpoint is only for workers")
+    
+    # Toggle cash_allowed
+    current_value = user.get("cash_allowed", True)
+    new_value = not current_value
+    
+    await db.users.update_one({"id": worker_id}, {"$set": {"cash_allowed": new_value}})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="USER_UPDATED",
+        entity="user",
+        entity_id=worker_id,
+        metadata={"cash_allowed": new_value, "email": user["email"]},
+        request=request
+    )
+    
+    return {
+        "message": f"Cash permission {'enabled' if new_value else 'disabled'}",
+        "cash_allowed": new_value
+    }
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,
