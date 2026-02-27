@@ -71,6 +71,13 @@ export const attendanceAPI = {
   punchIn: (data) => api.post('/attendance/punch-in', data),
   punchOut: (data) => api.post('/attendance/punch-out', data),
   getToday: () => api.get('/attendance/today'),
+  getMyHistory: (days = 30) => api.get(`/attendance/my-history?days=${days}`),
+  // Admin
+  getStats: (date) => api.get(`/attendance/admin/stats${date ? `?date=${date}` : ''}`),
+  getWorkers: (date) => api.get(`/attendance/admin/workers${date ? `?date=${date}` : ''}`),
+  getReport: (params) => api.get('/attendance/admin/report', { params }),
+  exportData: (startDate, endDate, format = 'json') => 
+    api.get(`/attendance/admin/export?start_date=${startDate}&end_date=${endDate}&format=${format}`),
 };
 
 // Coupon APIs
