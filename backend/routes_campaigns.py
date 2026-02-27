@@ -1015,7 +1015,7 @@ async def delete_campaign(
     return {"message": f"Campaign '{campaign['name']}' and {total_coupons} coupons permanently deleted"}
 
 
-@router.patch("/campaigns/{campaign_id}/deactivate")
+@router.patch("/{campaign_id}/deactivate")
 async def deactivate_campaign(
     campaign_id: str,
     request: Request,
