@@ -532,12 +532,22 @@ export default function SaleCouponPage() {
                       </AlertDescription>
                     </Alert>
 
+                    {/* Hidden file input for gallery */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleGalleryUpload}
+                      data-testid="gallery-file-input"
+                    />
+
                     <div className="space-y-2">
                       <Label className="text-base font-semibold flex items-center gap-2">
                         <Camera className="h-4 w-4" />
                         Capture Coupon Photo (Optional)
                       </Label>
-                      <p className="text-sm text-zinc-500">Taking a photo enables OCR to auto-fill customer details. You can skip this step.</p>
+                      <p className="text-sm text-zinc-500">Take a photo or upload from gallery. OCR will auto-fill customer details.</p>
                       
                       <div className="border rounded-lg overflow-hidden bg-zinc-100">
                         {!photo ? (
@@ -552,19 +562,41 @@ export default function SaleCouponPage() {
                                 height: 480
                               }}
                             />
-                            <Button 
-                              className="absolute bottom-3 left-1/2 -translate-x-1/2"
-                              style={{ backgroundColor: THEME_COLOR }}
-                              onClick={capturePhoto}
-                            >
-                              <Camera className="h-4 w-4 mr-2" />
-                              Capture Photo
-                            </Button>
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                              <Button 
+                                style={{ backgroundColor: THEME_COLOR }}
+                                onClick={capturePhoto}
+                                data-testid="capture-photo-btn"
+                              >
+                                <Camera className="h-4 w-4 mr-2" />
+                                Capture
+                              </Button>
+                              <Button 
+                                variant="secondary"
+                                onClick={() => fileInputRef.current?.click()}
+                                data-testid="upload-gallery-btn"
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Gallery
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <div className="relative">
                             <img src={photo} alt="Captured" className="w-full h-56 object-cover" />
-                            <div className="absolute top-2 right-2">
+                            <div className="absolute top-2 right-2 flex gap-1">
+                              {photoSource === 'gallery' && (
+                                <Badge className="bg-purple-600">
+                                  <Upload className="h-3 w-3 mr-1" />
+                                  Gallery
+                                </Badge>
+                              )}
+                              {photoSource === 'camera' && (
+                                <Badge className="bg-blue-600">
+                                  <Camera className="h-3 w-3 mr-1" />
+                                  Camera
+                                </Badge>
+                              )}
                               {ocrRunning && (
                                 <Badge className="bg-blue-600">
                                   <ScanLine className="h-3 w-3 mr-1 animate-pulse" />
@@ -578,18 +610,24 @@ export default function SaleCouponPage() {
                                 </Badge>
                               )}
                             </div>
-                            <Button 
-                              className="absolute bottom-3 left-1/2 -translate-x-1/2"
-                              variant="secondary"
-                              onClick={() => {
-                                setPhoto(null);
-                                setOcrResult(null);
-                                setOcrDetectedName('');
-                                setOcrDetectedPhone('');
-                              }}
-                            >
-                              Retake Photo
-                            </Button>
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                              <Button 
+                                variant="secondary"
+                                onClick={handleRetake}
+                                data-testid="retake-photo-btn"
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Retake
+                              </Button>
+                              <Button 
+                                variant="secondary"
+                                onClick={() => fileInputRef.current?.click()}
+                                data-testid="reupload-gallery-btn"
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload Different
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -616,6 +654,7 @@ export default function SaleCouponPage() {
                         onClick={() => setStep(3)}
                         className="flex-1"
                         style={{ backgroundColor: THEME_COLOR }}
+                        data-testid="photo-continue-btn"
                       >
                         {photo ? 'Continue with Photo' : 'Skip & Continue'}
                         <ChevronRight className="h-4 w-4 ml-1" />
