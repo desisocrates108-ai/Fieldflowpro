@@ -179,6 +179,7 @@ export default function SaleCouponPage() {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
       setPhoto(imageSrc);
+      setPhotoSource('camera');
       toast.success('Photo captured');
       
       // Run OCR in background (non-blocking)
@@ -186,6 +187,40 @@ export default function SaleCouponPage() {
         runOCR(imageSrc);
       }
     }
+  };
+
+  const handleGalleryUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageSrc = event.target.result;
+      setPhoto(imageSrc);
+      setPhotoSource('gallery');
+      toast.success('Photo uploaded from gallery');
+      
+      if (USE_OCR && imageSrc) {
+        runOCR(imageSrc);
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleRetake = () => {
+    setPhoto(null);
+    setPhotoSource(null);
+    setOcrResult(null);
+    setOcrDetectedName('');
+    setOcrDetectedPhone('');
+    setOcrConfidence(0);
   };
 
   // OCR runs in background - does NOT block submission
