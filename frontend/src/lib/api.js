@@ -151,11 +151,13 @@ export const intelligenceAPI = {
 
 // Admin APIs
 export const adminAPI = {
-  getDashboardStats: () => api.get('/admin/dashboard/stats'),
+  getDashboardStats: () => api.get('/admin/dashboard-stats'),
   getInactivityAlerts: (status) => api.get('/admin/inactivity-alerts', { params: { status } }),
   resolveInactivityAlert: (id, notes) => api.patch(`/admin/inactivity-alerts/${id}/resolve`, null, { params: { notes } }),
   dismissInactivityAlert: (id, notes) => api.patch(`/admin/inactivity-alerts/${id}/dismiss`, null, { params: { notes } }),
   getSpoofingAlerts: () => api.get('/admin/spoofing-alerts'),
+  deleteCoupon: (id, force = true) => api.delete(`/admin/coupons/${id}`, { params: { force } }),
+  deleteCRECallLog: (id) => api.delete(`/cre/call-log/${id}`),
   
   // Worker management
   createWorker: (data) => api.post('/admin/workers', data),
