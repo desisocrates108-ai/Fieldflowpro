@@ -401,6 +401,47 @@ async def encash_coupon(
     )
 
 
+# ========== CRE Delete Call Log / Remark ==========
+@router.delete("/cre/call-log/{log_id}")
+async def delete_cre_call_log(
+    log_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin", "cre"))
+):
+    """
+    Delete a CRE call log / remark.
+    - Admin can delete any call log
+    - CRE can only delete their own call logs
+    """
+    call_log = await db.cre_call_logs.find_one({"id": log_id}, {"_id": 0})
+    if not call_log:
+        raise HTTPException(status_code=404, detail="Call log not found")
+    
+    # CRE can only delete their own
+    if current_user["role"] == "cre" and call_log["cre_id"] != current_user["sub"]:
+        raise HTTPException(status_code=403, detail="You can only delete your own call logs")
+    
+    # Hard delete
+    await db.cre_call_logs.delete_one({"id": log_id})
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="CRE_CALL_LOG_DELETED",
+        entity="cre_call_log",
+        entity_id=log_id,
+        metadata={
+            "coupon_id": call_log.get("coupon_id"),
+            "customer_name": call_log.get("customer_name"),
+            "remarks": call_log.get("remarks"),
+            "deleted_by_role": current_user["role"]
+        },
+        request=request
+    )
+    
+    return {"message": "Call log deleted successfully"}
+
+
 # ========== Admin: View All CRE Remarks ==========
 @router.get("/admin/cre-remarks", response_model=List[AdminCRERemarkView])
 async def get_all_cre_remarks(
