@@ -39,6 +39,7 @@ export default function SaleCouponPage() {
   
   // Step 2: Photo (optional)
   const [photo, setPhoto] = useState(null);
+  const [photoSource, setPhotoSource] = useState(null); // 'camera' or 'gallery'
   
   // Step 3: Customer Details
   const [customerName, setCustomerName] = useState('');
@@ -71,6 +72,7 @@ export default function SaleCouponPage() {
   const [salesLoading, setSalesLoading] = useState(false);
   
   const webcamRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchBranches();
