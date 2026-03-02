@@ -13,7 +13,7 @@ import {
   Phone, User, Ticket, Building2, Clock, Calendar,
   Loader2, RefreshCcw, CheckCircle, MessageSquare,
   Users, PhoneCall, AlertCircle, Search, Download,
-  Filter, ArrowUpDown, ArrowUp, ArrowDown
+  Filter, ArrowUpDown, ArrowUp, ArrowDown, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
