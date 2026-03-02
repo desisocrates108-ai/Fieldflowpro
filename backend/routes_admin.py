@@ -1083,6 +1083,79 @@ async def delete_api_key(
     return {"message": "API key deleted"}
 
 
+# ========== Unified Coupon Delete (Admin) ==========
+
+@router.delete("/coupons/{coupon_id}")
+async def admin_delete_coupon(
+    coupon_id: str,
+    request: Request,
+    force: bool = False,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    Admin unified coupon delete - checks both campaign_coupons and legacy coupons collections.
+    force=true: Delete regardless of status.
+    """
+    # Try campaign_coupons first
+    coupon = await db.campaign_coupons.find_one({"id": coupon_id}, {"_id": 0})
+    collection_name = "campaign_coupons"
+    
+    if not coupon:
+        # Fall back to legacy coupons collection
+        coupon = await db.coupons.find_one({"id": coupon_id}, {"_id": 0})
+        collection_name = "coupons"
+    
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found in any collection")
+    
+    status = coupon.get("status", "UNKNOWN")
+    coupon_code = coupon.get("code") or coupon.get("coupon_code") or "unknown"
+    safe_statuses = ["AVAILABLE", "PENDING", "CANCELLED"]
+    
+    if status not in safe_statuses and not force:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Coupon is '{status}'. Use force=true to delete anyway."
+        )
+    
+    # Hard delete from the correct collection
+    await db[collection_name].delete_one({"id": coupon_id})
+    
+    # If it was a campaign coupon, update the campaign's count
+    if collection_name == "campaign_coupons" and coupon.get("campaign_id"):
+        await db.campaigns.update_one(
+            {"id": coupon["campaign_id"]},
+            {"$inc": {"total_count": -1}}
+        )
+        # If it was SOLD, also decrement sold_count
+        if status == "SOLD":
+            await db.campaigns.update_one(
+                {"id": coupon["campaign_id"]},
+                {"$inc": {"sold_count": -1}}
+            )
+    
+    await create_audit_log(
+        user_id=current_user["sub"],
+        user_role=current_user["role"],
+        action="COUPON_DELETED",
+        entity="coupon",
+        entity_id=coupon_id,
+        metadata={
+            "coupon_code": coupon_code,
+            "original_status": status,
+            "collection": collection_name,
+            "force_delete": force
+        },
+        request=request
+    )
+    
+    msg = f"Coupon '{coupon_code}' permanently deleted from {collection_name}"
+    if force and status not in safe_statuses:
+        msg += f" (FORCE DELETE: was {status})"
+    
+    return {"message": msg, "deleted_from": collection_name}
+
+
 # ========== Data Cleanup ==========
 
 @router.post("/cleanup-dummy-data")
