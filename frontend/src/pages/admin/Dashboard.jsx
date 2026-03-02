@@ -185,7 +185,7 @@ export default function AdminDashboard() {
             <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
               <CardContent className="p-4 text-center">
                 <DollarSign className="h-6 w-6 mx-auto text-green-600 mb-1" />
-                <p className="text-2xl font-bold text-green-700">₹{metrics.live_revenue_today.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-700" data-testid="revenue-today">₹{(metrics.revenue_today || 0).toLocaleString()}</p>
                 <p className="text-xs text-green-600">Revenue Today</p>
               </CardContent>
             </Card>
@@ -193,7 +193,7 @@ export default function AdminDashboard() {
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardContent className="p-4 text-center">
                 <TrendingUp className="h-6 w-6 mx-auto text-blue-600 mb-1" />
-                <p className="text-2xl font-bold text-blue-700">{metrics.live_sales_today}</p>
+                <p className="text-2xl font-bold text-blue-700" data-testid="sales-today">{metrics.sales_today || 0}</p>
                 <p className="text-xs text-blue-600">Sales Today</p>
               </CardContent>
             </Card>
@@ -201,7 +201,7 @@ export default function AdminDashboard() {
             <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
               <CardContent className="p-4 text-center">
                 <Users className="h-6 w-6 mx-auto text-cyan-600 mb-1" />
-                <p className="text-2xl font-bold text-cyan-700">{metrics.active_workers_now}</p>
+                <p className="text-2xl font-bold text-cyan-700" data-testid="active-workers">{metrics.active_workers_now || 0}</p>
                 <p className="text-xs text-cyan-600">Active Now</p>
               </CardContent>
             </Card>
@@ -209,31 +209,31 @@ export default function AdminDashboard() {
             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
               <CardContent className="p-4 text-center">
                 <Activity className="h-6 w-6 mx-auto text-purple-600 mb-1" />
-                <p className="text-2xl font-bold text-purple-700">{metrics.total_punched_in_today}</p>
+                <p className="text-2xl font-bold text-purple-700" data-testid="punched-in">{metrics.total_punched_in_today || 0}</p>
                 <p className="text-xs text-purple-600">Punched In</p>
               </CardContent>
             </Card>
             
-            <Card className={`bg-gradient-to-br ${metrics.inactive_worker_alerts > 0 ? 'from-orange-50 to-orange-100 border-orange-300' : 'from-gray-50 to-gray-100 border-gray-200'}`}>
+            <Card className={`bg-gradient-to-br ${(metrics.inactive_alerts || 0) > 0 ? 'from-orange-50 to-orange-100 border-orange-300' : 'from-gray-50 to-gray-100 border-gray-200'}`}>
               <CardContent className="p-4 text-center">
-                <UserX className={`h-6 w-6 mx-auto ${metrics.inactive_worker_alerts > 0 ? 'text-orange-600' : 'text-gray-400'} mb-1`} />
-                <p className={`text-2xl font-bold ${metrics.inactive_worker_alerts > 0 ? 'text-orange-700' : 'text-gray-500'}`}>{metrics.inactive_worker_alerts}</p>
-                <p className={`text-xs ${metrics.inactive_worker_alerts > 0 ? 'text-orange-600' : 'text-gray-500'}`}>Inactive Alerts</p>
+                <UserX className={`h-6 w-6 mx-auto ${(metrics.inactive_alerts || 0) > 0 ? 'text-orange-600' : 'text-gray-400'} mb-1`} />
+                <p className={`text-2xl font-bold ${(metrics.inactive_alerts || 0) > 0 ? 'text-orange-700' : 'text-gray-500'}`} data-testid="inactive-alerts">{metrics.inactive_alerts || 0}</p>
+                <p className={`text-xs ${(metrics.inactive_alerts || 0) > 0 ? 'text-orange-600' : 'text-gray-500'}`}>Inactive Alerts</p>
               </CardContent>
             </Card>
             
-            <Card className={`bg-gradient-to-br ${metrics.fraud_alerts_active > 0 ? 'from-red-50 to-red-100 border-red-300' : 'from-gray-50 to-gray-100 border-gray-200'}`}>
+            <Card className={`bg-gradient-to-br ${(metrics.fraud_alerts_active || 0) > 0 ? 'from-red-50 to-red-100 border-red-300' : 'from-gray-50 to-gray-100 border-gray-200'}`}>
               <CardContent className="p-4 text-center">
-                <ShieldAlert className={`h-6 w-6 mx-auto ${metrics.fraud_alerts_active > 0 ? 'text-red-600' : 'text-gray-400'} mb-1`} />
-                <p className={`text-2xl font-bold ${metrics.fraud_alerts_active > 0 ? 'text-red-700' : 'text-gray-500'}`}>{metrics.fraud_alerts_active}</p>
-                <p className={`text-xs ${metrics.fraud_alerts_active > 0 ? 'text-red-600' : 'text-gray-500'}`}>Fraud Alerts</p>
+                <ShieldAlert className={`h-6 w-6 mx-auto ${(metrics.fraud_alerts_active || 0) > 0 ? 'text-red-600' : 'text-gray-400'} mb-1`} />
+                <p className={`text-2xl font-bold ${(metrics.fraud_alerts_active || 0) > 0 ? 'text-red-700' : 'text-gray-500'}`} data-testid="fraud-alerts">{metrics.fraud_alerts_active || 0}</p>
+                <p className={`text-xs ${(metrics.fraud_alerts_active || 0) > 0 ? 'text-red-600' : 'text-gray-500'}`}>Fraud Alerts</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
               <CardContent className="p-4 text-center">
                 <Clock className="h-6 w-6 mx-auto text-amber-600 mb-1" />
-                <p className="text-2xl font-bold text-amber-700">{metrics.pending_expenses}</p>
+                <p className="text-2xl font-bold text-amber-700" data-testid="pending-expenses">{metrics.pending_expenses || 0}</p>
                 <p className="text-xs text-amber-600">Pending Expenses</p>
               </CardContent>
             </Card>
@@ -241,7 +241,7 @@ export default function AdminDashboard() {
             <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
               <CardContent className="p-4 text-center">
                 <CheckCircle className="h-6 w-6 mx-auto text-indigo-600 mb-1" />
-                <p className="text-2xl font-bold text-indigo-700">{metrics.encashments_today}</p>
+                <p className="text-2xl font-bold text-indigo-700" data-testid="encashments-today">{metrics.encashments_today || 0}</p>
                 <p className="text-xs text-indigo-600">Encashments</p>
               </CardContent>
             </Card>
