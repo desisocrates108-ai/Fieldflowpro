@@ -15,7 +15,7 @@ import {
   Ticket, User, Phone, Camera, MapPin, Building2,
   Loader2, CheckCircle, AlertTriangle, Search,
   RefreshCcw, History, Eye, ScanLine, ChevronRight, ChevronLeft,
-  QrCode, CreditCard, IndianRupee
+  QrCode, CreditCard, IndianRupee, Upload, RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
