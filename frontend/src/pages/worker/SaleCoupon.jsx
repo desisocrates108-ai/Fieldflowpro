@@ -360,6 +360,7 @@ export default function SaleCouponPage() {
     setCustomerPhone('');
     setSelectedBranch('');
     setPhoto(null);
+    setPhotoSource(null);
     setOcrResult(null);
     setOcrDetectedName('');
     setOcrDetectedPhone('');
