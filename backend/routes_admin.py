@@ -870,7 +870,6 @@ async def get_admin_dashboard_stats(
     """Legacy endpoint - redirects to consolidated stats"""
     ist = ZoneInfo("Asia/Kolkata")
     now_ist = datetime.now(ist)
-    now_utc = datetime.now(timezone.utc)
     
     today_ist_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     today_utc_start = today_ist_start.astimezone(timezone.utc).isoformat()
