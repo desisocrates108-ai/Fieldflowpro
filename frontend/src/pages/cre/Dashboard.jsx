@@ -157,6 +157,28 @@ export default function CREDashboard() {
     }
   };
 
+  const handleDeleteCallLog = async (logId, customerName) => {
+    if (!window.confirm(`Delete remark for "${customerName}"? This action cannot be undone.`)) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/cre/call-log/${logId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast.success('Call log deleted');
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to delete');
+      }
+    } catch (error) {
+      toast.error('Failed to delete call log');
+    }
+  };
+
   const handleSort = (column) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
