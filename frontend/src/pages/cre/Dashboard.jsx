@@ -559,9 +559,9 @@ export default function CREDashboard() {
                             <TableCell className="max-w-32 truncate text-xs text-zinc-500" title={customer.last_remarks}>
                               <div className="flex items-center gap-1">
                                 <span className="truncate">{customer.last_remarks || '-'}</span>
-                                {customer.last_remarks && customer.call_status !== 'PENDING' && (
+                                {customer.last_call_log_id && (
                                   <button
-                                    onClick={() => handleDeleteCallLog(customer.coupon_id, customer.customer_name)}
+                                    onClick={() => handleDeleteCallLog(customer.last_call_log_id, customer.customer_name)}
                                     className="flex-shrink-0 p-1 hover:bg-red-50 rounded text-zinc-400 hover:text-red-500 transition-colors"
                                     title="Delete remark"
                                     data-testid={`delete-remark-${customer.coupon_id}`}
