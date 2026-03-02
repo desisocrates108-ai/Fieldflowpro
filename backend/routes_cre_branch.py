@@ -127,11 +127,12 @@ async def get_cre_customers(
             campaign_name=campaign_name,
             branch_id=coupon.get("branch_id", ""),
             branch_name=branch_name,
-            worker_name=worker_name,  # Added worker name
+            worker_name=worker_name,
             sold_at=coupon["sold_at"],
             call_status=last_call["call_status"] if last_call else "PENDING",
             last_call_timestamp=datetime.fromisoformat(last_call["call_timestamp"]) if last_call and isinstance(last_call.get("call_timestamp"), str) else last_call.get("call_timestamp") if last_call else None,
-            last_remarks=last_call.get("remarks") if last_call else None
+            last_remarks=last_call.get("remarks") if last_call else None,
+            last_call_log_id=last_call.get("id") if last_call else None
         ))
     
     return results
