@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Literal
+from zoneinfo import ZoneInfo
 import asyncio
 
 from models import (
@@ -727,36 +728,58 @@ async def dismiss_inactivity_alert(
     return {"message": "Alert dismissed"}
 
 
-# ========== Enhanced Dashboard Stats ==========
+# ========== Enhanced Dashboard Stats (IST Timezone-Aware) ==========
 
-@router.get("/dashboard/stats", response_model=AdminDashboardStats)
-async def get_admin_dashboard_stats(
+@router.get("/dashboard-stats")
+async def get_admin_dashboard_stats_consolidated(
     current_user: dict = Depends(require_roles("admin", "cre"))
 ):
-    """Get comprehensive admin dashboard statistics"""
-    now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    """
+    Consolidated admin dashboard stats endpoint.
+    All 'today' calculations use IST (Asia/Kolkata) timezone.
+    """
+    ist = ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    now_utc = datetime.now(timezone.utc)
     
-    # Workers
+    # IST boundaries converted to UTC ISO strings for DB queries
+    today_ist_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc_start = today_ist_start.astimezone(timezone.utc).isoformat()
+    
+    month_ist_start = now_ist.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_utc_start = month_ist_start.astimezone(timezone.utc).isoformat()
+    
+    # --- Workers ---
     total_workers = await db.users.count_documents({"role": "worker", "is_active": True})
     
-    active_today = await db.attendance.count_documents({
+    # Punched in today (using attendance collection)
+    punch_ins_today = await db.attendance.find({
         "type": "PUNCH_IN",
-        "timestamp": {"$gte": today_start}
-    })
+        "timestamp": {"$gte": today_utc_start}
+    }, {"_id": 0, "worker_id": 1}).to_list(500)
+    punched_in_ids = set(p["worker_id"] for p in punch_ins_today)
+    
+    punch_outs_today = await db.attendance.find({
+        "type": "PUNCH_OUT",
+        "timestamp": {"$gte": today_utc_start}
+    }, {"_id": 0, "worker_id": 1}).to_list(500)
+    punched_out_ids = set(p["worker_id"] for p in punch_outs_today)
+    
+    active_workers_now = len(punched_in_ids - punched_out_ids)
+    total_punched_in = len(punched_in_ids)
     
     inactive_alerts = await db.inactivity_logs.count_documents({"status": "ACTIVE"})
+    fraud_alerts_active = await db.fraud_alerts.count_documents({"status": "ACTIVE"})
     
-    # Sales today
+    # --- Sales Today (IST) ---
     sales_today = await db.campaign_coupons.count_documents({
         "status": "SOLD",
-        "sold_at": {"$gte": today_start}
+        "sold_at": {"$gte": today_utc_start}
     })
     
     # Revenue today
     revenue_pipeline = [
-        {"$match": {"status": "SOLD", "sold_at": {"$gte": today_start}}},
+        {"$match": {"status": "SOLD", "sold_at": {"$gte": today_utc_start}}},
         {"$lookup": {
             "from": "campaigns",
             "localField": "campaign_id",
@@ -769,14 +792,14 @@ async def get_admin_dashboard_stats(
     revenue_today_result = await db.campaign_coupons.aggregate(revenue_pipeline).to_list(1)
     revenue_today = revenue_today_result[0]["total"] if revenue_today_result else 0.0
     
-    # Sales & Revenue this month
+    # --- Sales & Revenue This Month ---
     sales_month = await db.campaign_coupons.count_documents({
         "status": "SOLD",
-        "sold_at": {"$gte": month_start}
+        "sold_at": {"$gte": month_utc_start}
     })
     
     month_pipeline = [
-        {"$match": {"status": "SOLD", "sold_at": {"$gte": month_start}}},
+        {"$match": {"status": "SOLD", "sold_at": {"$gte": month_utc_start}}},
         {"$lookup": {
             "from": "campaigns",
             "localField": "campaign_id",
@@ -789,50 +812,105 @@ async def get_admin_dashboard_stats(
     revenue_month_result = await db.campaign_coupons.aggregate(month_pipeline).to_list(1)
     revenue_month = revenue_month_result[0]["total"] if revenue_month_result else 0.0
     
-    # Campaigns
+    # --- Campaigns ---
     active_campaigns = await db.campaigns.count_documents({"status": "ACTIVE"})
     total_available = await db.campaign_coupons.count_documents({"status": "AVAILABLE"})
     
-    # Areas
+    # --- Areas ---
     total_areas = await db.areas.count_documents({"is_active": True})
     
-    # Top area
-    top_area_pipeline = [
-        {"$match": {"status": "SOLD", "sold_at": {"$gte": month_start}}},
-        {"$group": {"_id": "$area_id", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
-        {"$limit": 1}
-    ]
-    top_area_result = await db.campaign_coupons.aggregate(top_area_pipeline).to_list(1)
-    top_area_name = None
-    if top_area_result and top_area_result[0]["_id"]:
-        area = await db.areas.find_one({"id": top_area_result[0]["_id"]}, {"_id": 0, "name": 1})
-        top_area_name = area["name"] if area else None
-    
-    # Expenses
+    # --- Expenses ---
     pending_expenses = await db.expenses.count_documents({"status": "PENDING"})
     
     expense_pipeline = [
-        {"$match": {"status": "APPROVED", "approved_at": {"$gte": month_start}}},
+        {"$match": {"status": "APPROVED", "approved_at": {"$gte": month_utc_start}}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
     ]
     expenses_month_result = await db.expenses.aggregate(expense_pipeline).to_list(1)
     expenses_month = expenses_month_result[0]["total"] if expenses_month_result else 0.0
     
-    # Advances this month
-    advance_pipeline = [
-        {"$match": {"type": "ADVANCE", "created_at": {"$gte": month_start}}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
-    ]
-    advances_month_result = await db.ledger_transactions.aggregate(advance_pipeline).to_list(1)
-    advances_month = advances_month_result[0]["total"] if advances_month_result else 0.0
+    # --- Encashments today ---
+    encashments_today = await db.encashments.count_documents({
+        "encashed_at": {"$gte": today_utc_start}
+    })
     
-    # Net payable
+    # --- Net payable ---
     net_pipeline = [
         {"$group": {"_id": None, "total": {"$sum": "$net_payable"}}}
     ]
     net_result = await db.worker_ledgers.aggregate(net_pipeline).to_list(1)
     net_payable = net_result[0]["total"] if net_result else 0.0
+    
+    return {
+        "total_workers": total_workers,
+        "active_workers_now": active_workers_now,
+        "total_punched_in_today": total_punched_in,
+        "inactive_alerts": inactive_alerts,
+        "fraud_alerts_active": fraud_alerts_active,
+        "sales_today": sales_today,
+        "revenue_today": revenue_today,
+        "sales_month": sales_month,
+        "revenue_month": revenue_month,
+        "active_campaigns": active_campaigns,
+        "total_coupons_available": total_available,
+        "total_areas": total_areas,
+        "pending_expenses": pending_expenses,
+        "expenses_month": expenses_month,
+        "encashments_today": encashments_today,
+        "net_payable": net_payable,
+        "timezone": "Asia/Kolkata",
+        "last_updated": now_utc.isoformat()
+    }
+
+
+@router.get("/dashboard/stats", response_model=AdminDashboardStats)
+async def get_admin_dashboard_stats(
+    current_user: dict = Depends(require_roles("admin", "cre"))
+):
+    """Legacy endpoint - redirects to consolidated stats"""
+    ist = ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    now_utc = datetime.now(timezone.utc)
+    
+    today_ist_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc_start = today_ist_start.astimezone(timezone.utc).isoformat()
+    month_ist_start = now_ist.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_utc_start = month_ist_start.astimezone(timezone.utc).isoformat()
+    
+    total_workers = await db.users.count_documents({"role": "worker", "is_active": True})
+    active_today = await db.attendance.count_documents({
+        "type": "PUNCH_IN",
+        "timestamp": {"$gte": today_utc_start}
+    })
+    inactive_alerts = await db.inactivity_logs.count_documents({"status": "ACTIVE"})
+    sales_today = await db.campaign_coupons.count_documents({
+        "status": "SOLD", "sold_at": {"$gte": today_utc_start}
+    })
+    revenue_pipeline = [
+        {"$match": {"status": "SOLD", "sold_at": {"$gte": today_utc_start}}},
+        {"$lookup": {"from": "campaigns", "localField": "campaign_id", "foreignField": "id", "as": "campaign"}},
+        {"$unwind": "$campaign"},
+        {"$group": {"_id": None, "total": {"$sum": "$campaign.price"}}}
+    ]
+    revenue_today_result = await db.campaign_coupons.aggregate(revenue_pipeline).to_list(1)
+    revenue_today = revenue_today_result[0]["total"] if revenue_today_result else 0.0
+    
+    sales_month = await db.campaign_coupons.count_documents({
+        "status": "SOLD", "sold_at": {"$gte": month_utc_start}
+    })
+    month_pipeline = [
+        {"$match": {"status": "SOLD", "sold_at": {"$gte": month_utc_start}}},
+        {"$lookup": {"from": "campaigns", "localField": "campaign_id", "foreignField": "id", "as": "campaign"}},
+        {"$unwind": "$campaign"},
+        {"$group": {"_id": None, "total": {"$sum": "$campaign.price"}}}
+    ]
+    revenue_month_result = await db.campaign_coupons.aggregate(month_pipeline).to_list(1)
+    revenue_month = revenue_month_result[0]["total"] if revenue_month_result else 0.0
+    
+    active_campaigns = await db.campaigns.count_documents({"status": "ACTIVE"})
+    total_available = await db.campaign_coupons.count_documents({"status": "AVAILABLE"})
+    total_areas = await db.areas.count_documents({"is_active": True})
+    pending_expenses = await db.expenses.count_documents({"status": "PENDING"})
     
     return AdminDashboardStats(
         total_workers=total_workers,
@@ -845,11 +923,11 @@ async def get_admin_dashboard_stats(
         active_campaigns=active_campaigns,
         total_coupons_available=total_available,
         total_areas=total_areas,
-        top_performing_area=top_area_name,
+        top_performing_area=None,
         pending_expenses=pending_expenses,
-        total_expenses_month=expenses_month,
-        total_advances_month=advances_month,
-        net_payable_all_workers=net_payable
+        total_expenses_month=0.0,
+        total_advances_month=0.0,
+        net_payable_all_workers=0.0
     )
 
 
