@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   const fetchAllData = useCallback(async () => {
     try {
       const [metricsRes, scoresRes, alertsRes, inactiveRes] = await Promise.all([
-        intelligenceAPI.getRealtimeMetrics(),
+        adminAPI.getDashboardStats(),
         intelligenceAPI.getWorkerScores(),
         intelligenceAPI.getFraudAlerts('ACTIVE'),
         intelligenceAPI.getInactiveWorkers()
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
       setInactiveWorkers(inactiveRes.data);
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      toast.error('Failed to load dashboard data');
+      toast.error('Failed to load dashboard data. Check network/API.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -63,7 +63,7 @@ export default function AdminDashboard() {
     
     // Auto-refresh every 30 seconds for real-time metrics
     const interval = setInterval(() => {
-      intelligenceAPI.getRealtimeMetrics().then(res => setMetrics(res.data)).catch(() => {});
+      adminAPI.getDashboardStats().then(res => setMetrics(res.data)).catch(() => {});
     }, 30000);
     
     return () => clearInterval(interval);
