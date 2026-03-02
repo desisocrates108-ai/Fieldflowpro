@@ -932,11 +932,12 @@ class CRECustomerView(BaseModel):
     campaign_name: str
     branch_id: str
     branch_name: str
-    worker_name: Optional[str] = None  # Added worker name
+    worker_name: Optional[str] = None
     sold_at: datetime
     call_status: str
     last_call_timestamp: Optional[datetime]
     last_remarks: Optional[str]
+    last_call_log_id: Optional[str] = None
 
 # ========== CRE Dashboard Stats ==========
 class CREDashboardStats(BaseModel):
