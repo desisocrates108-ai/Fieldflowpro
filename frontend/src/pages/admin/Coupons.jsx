@@ -120,7 +120,8 @@ export default function CouponsPage() {
     setDeleting(true);
     try {
       const token = localStorage.getItem('access_token');
-      const url = `${BACKEND_URL}/api/campaigns/coupons/${couponToDelete.id}${forceDelete ? '?force=true' : ''}`;
+      // Always use force=true since admin explicitly chose to delete
+      const url = `${BACKEND_URL}/api/admin/coupons/${couponToDelete.id}?force=true`;
       const response = await fetch(url, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
