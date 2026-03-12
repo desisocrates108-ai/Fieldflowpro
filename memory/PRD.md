@@ -12,9 +12,9 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ```
 /app/backend/ - FastAPI server with modular route files
   server.py - Main app, core endpoints (coupons, auth, etc.)
-  routes_admin.py - Admin management endpoints
+  routes_admin.py - Admin management + dashboard stats + coupon delete
   routes_campaigns.py - Campaign CRUD + coupon management
-  routes_cre_branch.py - CRE & Branch operations
+  routes_cre_branch.py - CRE & Branch operations + call log delete
   routes_intelligence.py - Analytics & scoring
   routes_ledger.py - Financial ledger
   routes_payments.py - Razorpay integration
@@ -25,19 +25,13 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
   utils.py - Encryption, helpers
 
 /app/frontend/src/ - React SPA
-  pages/admin/ - Admin dashboard, workers, campaigns, coupons, branches, etc.
+  pages/admin/ - Dashboard, Workers, Campaigns, Coupons, Branches, Ledger, etc.
   pages/worker/ - Worker dashboard, sale coupon, attendance
   pages/cre/ - CRE dashboard
   pages/branch/ - Branch dashboard
   components/ - Shared components (Layout, ForceDeleteModal, PaymentQR, etc.)
   lib/api.js - API client
 ```
-
-## Key DB Collections
-- users, campaigns, campaign_coupons, coupons (legacy), cre_call_logs
-- attendance, daily_attendance, expenses, encashments
-- worker_ledgers, ledger_transactions, areas, bookings
-- audit_logs, inactivity_logs, fraud_alerts
 
 ## Credentials
 - Admin: testadmin@fieldflow.com / admin123
@@ -56,19 +50,28 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 - Expense submission and approval workflow
 - Worker ledger and financial tracking
 - Area management
-
-### Recent Completions (March 2026)
 - Attendance Module (punch-in/out + admin dashboard)
 - Worker "Cash Allowed" logic
 - Admin deletion overhaul (soft/hard/force delete for all entities)
 - ForceDeleteModal reusable component
-- Expense bill image preview fix
 
-### P0 Fixes Completed (March 11, 2026)
-1. **P0-4: Force Delete Coupon** - FIXED. New unified `DELETE /api/admin/coupons/{id}?force=true` checks both `coupons` and `campaign_coupons` collections. Root cause was frontend calling wrong collection's endpoint.
-2. **P0-2: Admin Dashboard Stats** - FIXED. New consolidated `GET /api/admin/dashboard-stats` with IST timezone (Asia/Kolkata). Returns 18 real stats fields. Frontend updated to use `adminAPI.getDashboardStats()`.
-3. **P0-1: Worker Photo Gallery + Retake** - DONE. SaleCoupon step 2 now has Capture, Gallery Upload, Retake, and Upload Different buttons with proper source tracking.
-4. **P0-3: CRE Remarks Deletable** - DONE. `DELETE /api/cre/call-log/{log_id}` with admin/CRE RBAC. Delete icon in CRE Dashboard remarks column. Audit logged.
+### P0 Fixes (March 2026)
+1. **Force Delete Coupon** - Unified `DELETE /api/admin/coupons/{id}?force=true` checks both collections
+2. **Admin Dashboard Stats** - Consolidated `GET /api/admin/dashboard-stats` with IST timezone
+3. **Worker Photo Gallery + Retake** - SaleCoupon step 2 with Capture/Gallery/Retake/Upload Different
+4. **CRE Remarks Deletable** - `DELETE /api/cre/call-log/{log_id}` with RBAC
+
+### Latest Session (March 12, 2026)
+1. **Removed "Made with Emergent" badge** - Cleaned index.html, updated page title to "FieldFlow Pro", updated meta description
+2. **CRE Remarks Delete in Admin Ledger** - Added Actions column with trash icon, confirmation dialog with remark details, instant row removal, badge count update, success toast
+3. **Enhanced Command Center Dashboard** - Added second stats row with 8 additional cards (Revenue Month, Sales Month, Active Campaigns, Coupons Available, Total Workers, Total Branches, Total Areas, Expenses Month). Added IST timestamp display. Backend now returns `total_branches` and includes debug logging.
+
+## Key API Endpoints
+- `GET /api/admin/dashboard-stats` - Consolidated IST-aware dashboard stats (19 fields)
+- `DELETE /api/admin/coupons/{id}?force=true` - Unified coupon delete (both collections)
+- `DELETE /api/cre/call-log/{log_id}` - CRE remark delete with RBAC
+- `GET /api/admin/cre-remarks` - Admin view of all CRE remarks
+- `POST /api/attendance/punch-in` / `punch-out` - Worker attendance
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
