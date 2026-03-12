@@ -13,7 +13,7 @@ import {
   IndianRupee, Users, Search, Loader2, RefreshCcw,
   User, Receipt, Eye, MessageSquare,
   Building2, Clock, Image, CheckCircle, XCircle,
-  X, ZoomIn
+  X, ZoomIn, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,6 +40,11 @@ export default function AdminLedgerPage() {
   const [rejectingExpenseId, setRejectingExpenseId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [processingAction, setProcessingAction] = useState(null);
+  
+  // CRE Remark delete
+  const [deleteRemarkDialogOpen, setDeleteRemarkDialogOpen] = useState(false);
+  const [remarkToDelete, setRemarkToDelete] = useState(null);
+  const [deletingRemark, setDeletingRemark] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -78,6 +83,32 @@ export default function AdminLedgerPage() {
       setLoading(false);
     }
   };
+
+  const handleDeleteRemark = async () => {
+    if (!remarkToDelete) return;
+    setDeletingRemark(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_URL}/api/cre/call-log/${remarkToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setCreRemarks(prev => prev.filter(r => r.id !== remarkToDelete.id));
+        toast.success('Remark deleted successfully');
+        setDeleteRemarkDialogOpen(false);
+        setRemarkToDelete(null);
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || 'Failed to delete remark');
+      }
+    } catch (error) {
+      toast.error('Failed to delete remark');
+    } finally {
+      setDeletingRemark(false);
+    }
+  };
+
 
   const viewWorkerExpenses = async (workerId, workerName) => {
     setSelectedWorkerExpenses({ id: workerId, name: workerName });
@@ -428,6 +459,7 @@ export default function AdminLedgerPage() {
                         <TableHead>Phone</TableHead>
                         <TableHead>Call Time</TableHead>
                         <TableHead>Remarks</TableHead>
+                        <TableHead className="w-20 text-center">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -446,6 +478,20 @@ export default function AdminLedgerPage() {
                           </TableCell>
                           <TableCell className="max-w-xs">
                             <p className="truncate text-sm italic">"{remark.remarks}"</p>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-zinc-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                setRemarkToDelete(remark);
+                                setDeleteRemarkDialogOpen(true);
+                              }}
+                              data-testid={`delete-remark-${remark.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -505,6 +551,51 @@ export default function AdminLedgerPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Delete CRE Remark Confirmation Dialog */}
+        <Dialog open={deleteRemarkDialogOpen} onOpenChange={setDeleteRemarkDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-red-700 flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Delete this remark?
+              </DialogTitle>
+            </DialogHeader>
+            {remarkToDelete && (
+              <div className="space-y-3">
+                <div className="bg-zinc-50 rounded-lg p-3 space-y-1.5 text-sm">
+                  <p><span className="font-medium text-zinc-600">CRE:</span> {remarkToDelete.cre_name}</p>
+                  <p><span className="font-medium text-zinc-600">Customer:</span> {remarkToDelete.customer_name}</p>
+                  <p><span className="font-medium text-zinc-600">Coupon:</span> <code className="bg-zinc-200 px-1 rounded">{remarkToDelete.coupon_code}</code></p>
+                  <p className="italic text-zinc-500">"{remarkToDelete.remarks}"</p>
+                </div>
+                <p className="text-sm text-red-600">This action cannot be undone. The remark will be permanently deleted.</p>
+              </div>
+            )}
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => { setDeleteRemarkDialogOpen(false); setRemarkToDelete(null); }}
+                disabled={deletingRemark}
+                data-testid="cancel-delete-remark-btn"
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleDeleteRemark}
+                disabled={deletingRemark}
+                data-testid="confirm-delete-remark-btn"
+              >
+                {deletingRemark ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting...</>
+                ) : (
+                  <><Trash2 className="h-4 w-4 mr-2" /> Delete Remark</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Expenses Dialog with Approval System */}
         <Dialog open={expensesDialogOpen} onOpenChange={setExpensesDialogOpen}>

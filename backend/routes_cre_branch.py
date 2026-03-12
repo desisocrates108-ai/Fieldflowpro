@@ -453,7 +453,7 @@ async def get_all_cre_remarks(
     calls = await db.cre_call_logs.find(
         {"remarks": {"$exists": True, "$ne": None}},
         {"_id": 0}
-    ).sort("remarks_timestamp", -1).to_list(limit)
+    ).sort("call_timestamp", -1).to_list(limit)
     
     results = []
     for call in calls:
@@ -472,12 +472,12 @@ async def get_all_cre_remarks(
             id=call["id"],
             cre_id=call["cre_id"],
             cre_name=cre["name"] if cre else "Unknown",
-            coupon_code=coupon["code"] if coupon else "Unknown",
+            coupon_code=call.get("coupon_code") or (coupon["code"] if coupon else "Unknown"),
             customer_name=call["customer_name"],
             customer_phone=call["customer_phone"],
             call_timestamp=call["call_timestamp"],
             remarks=call["remarks"],
-            remarks_timestamp=call["remarks_timestamp"]
+            remarks_timestamp=call.get("remarks_timestamp") or call["call_timestamp"]
         ))
     
     return results

@@ -22,7 +22,11 @@ import {
   UserX,
   CheckCircle,
   XCircle,
-  Search
+  Search,
+  Building2,
+  Ticket,
+  CalendarDays,
+  Briefcase
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -155,6 +159,11 @@ export default function AdminDashboard() {
             </h1>
             <p className="text-zinc-500 mt-1">
               Real-time Revenue Intelligence • Elite v4.0
+              {metrics?.last_updated && (
+                <span className="ml-2 text-xs text-zinc-400">
+                  Last updated: {new Date(metrics.last_updated).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST
+                </span>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
@@ -243,6 +252,68 @@ export default function AdminDashboard() {
                 <CheckCircle className="h-6 w-6 mx-auto text-indigo-600 mb-1" />
                 <p className="text-2xl font-bold text-indigo-700" data-testid="encashments-today">{metrics.encashments_today || 0}</p>
                 <p className="text-xs text-indigo-600">Encashments</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Extended Stats Row */}
+        {metrics && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <DollarSign className="h-5 w-5 mx-auto text-green-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="revenue-month">₹{(metrics.revenue_month || 0).toLocaleString()}</p>
+                <p className="text-[10px] text-zinc-500">Revenue (Month)</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <TrendingUp className="h-5 w-5 mx-auto text-blue-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="sales-month">{metrics.sales_month || 0}</p>
+                <p className="text-[10px] text-zinc-500">Sales (Month)</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <Briefcase className="h-5 w-5 mx-auto text-teal-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="active-campaigns">{metrics.active_campaigns || 0}</p>
+                <p className="text-[10px] text-zinc-500">Active Campaigns</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <Ticket className="h-5 w-5 mx-auto text-violet-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="coupons-available">{(metrics.total_coupons_available || 0).toLocaleString()}</p>
+                <p className="text-[10px] text-zinc-500">Coupons Available</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <Users className="h-5 w-5 mx-auto text-sky-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="total-workers">{metrics.total_workers || 0}</p>
+                <p className="text-[10px] text-zinc-500">Total Workers</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <Building2 className="h-5 w-5 mx-auto text-orange-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="total-branches">{metrics.total_branches || 0}</p>
+                <p className="text-[10px] text-zinc-500">Total Branches</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <MapPin className="h-5 w-5 mx-auto text-rose-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="total-areas">{metrics.total_areas || 0}</p>
+                <p className="text-[10px] text-zinc-500">Total Areas</p>
+              </CardContent>
+            </Card>
+            <Card className="border-zinc-200">
+              <CardContent className="p-3 text-center">
+                <CalendarDays className="h-5 w-5 mx-auto text-fuchsia-500 mb-1" />
+                <p className="text-lg font-bold text-zinc-800" data-testid="expenses-month">₹{(metrics.expenses_month || 0).toLocaleString()}</p>
+                <p className="text-[10px] text-zinc-500">Expenses (Month)</p>
               </CardContent>
             </Card>
           </div>

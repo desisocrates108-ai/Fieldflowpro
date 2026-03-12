@@ -841,6 +841,17 @@ async def get_admin_dashboard_stats_consolidated(
     net_result = await db.worker_ledgers.aggregate(net_pipeline).to_list(1)
     net_payable = net_result[0]["total"] if net_result else 0.0
     
+    # --- Branches ---
+    total_branches = await db.users.count_documents({"role": "branch", "is_active": True})
+    
+    # --- Debug logging ---
+    import logging
+    logger = logging.getLogger("dashboard_stats")
+    logger.info(f"[IST Dashboard Stats] timezone=Asia/Kolkata, ist_today_start={today_ist_start.isoformat()}, "
+                f"utc_equivalent={today_utc_start}, workers={total_workers}, sales_today={sales_today}, "
+                f"revenue_today={revenue_today}, punched_in={total_punched_in}, active_now={active_workers_now}, "
+                f"pending_expenses={pending_expenses}, campaigns={active_campaigns}, branches={total_branches}")
+    
     return {
         "total_workers": total_workers,
         "active_workers_now": active_workers_now,
@@ -854,6 +865,7 @@ async def get_admin_dashboard_stats_consolidated(
         "active_campaigns": active_campaigns,
         "total_coupons_available": total_available,
         "total_areas": total_areas,
+        "total_branches": total_branches,
         "pending_expenses": pending_expenses,
         "expenses_month": expenses_month,
         "encashments_today": encashments_today,
