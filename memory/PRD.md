@@ -1,18 +1,18 @@
 # Field Flow Pro - Product Requirements Document
 
 ## Original Problem Statement
-Build a full-stack field operations management platform ("Field Flow Pro") for managing workers, campaigns, coupons, branches, CRE (Customer Relations Executive) operations, expenses, attendance, and real-time intelligence dashboards.
+Build a full-stack field operations management platform ("Field Flow Pro") for managing workers, campaigns, coupons, branches, CRE operations, expenses, attendance, and real-time intelligence dashboards.
 
 ## Tech Stack
 - **Backend**: FastAPI + MongoDB (Motor async driver) + JWT Auth + Pydantic
 - **Frontend**: React + Tailwind CSS + Shadcn UI + React Router
-- **Integrations**: Razorpay (payments), Tesseract.js (OCR), Mapbox (future)
+- **Integrations**: Razorpay (payments), Tesseract.js (OCR), xlsx (Excel export)
 
 ## Architecture
 ```
-/app/backend/ - FastAPI server with modular route files
-  server.py - Main app, core endpoints (coupons, auth, etc.)
-  routes_admin.py - Admin management + dashboard stats + coupon delete
+/app/backend/
+  server.py - Main app, core endpoints, worker data entry
+  routes_admin.py - Admin management, dashboard stats, admin coupons, admin data entry
   routes_campaigns.py - Campaign CRUD + coupon management
   routes_cre_branch.py - CRE & Branch operations + call log delete
   routes_intelligence.py - Analytics & scoring
@@ -21,15 +21,14 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
   routes_attendance.py - Punch in/out
   routes_areas.py - Area management
   models.py - Pydantic models
-  auth.py - JWT auth
-  utils.py - Encryption, helpers
+  auth.py - JWT auth, utils.py - Encryption/helpers
 
-/app/frontend/src/ - React SPA
-  pages/admin/ - Dashboard, Workers, Campaigns, Coupons, Branches, Ledger, etc.
-  pages/worker/ - Worker dashboard, sale coupon, attendance
-  pages/cre/ - CRE dashboard
-  pages/branch/ - Branch dashboard
-  components/ - Shared components (Layout, ForceDeleteModal, PaymentQR, etc.)
+/app/frontend/src/
+  pages/admin/ - Dashboard, Workers, Campaigns, Coupons, Branches, Ledger, DataEntry, etc.
+  pages/worker/ - Dashboard, SaleCoupon, Attendance, Expenses, DataEntry
+  pages/cre/ - CRE Dashboard
+  pages/branch/ - Branch Dashboard
+  components/ - Layout, ForceDeleteModal, PaymentQR, etc.
   lib/api.js - API client
 ```
 
@@ -42,36 +41,41 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ## What's Been Implemented
 
 ### Core Features (Complete)
-- Multi-role authentication (admin, worker, CRE, branch)
+- Multi-role auth (admin, worker, CRE, branch)
 - Campaign management (CRUD, coupon generation, worker assignment)
 - Coupon lifecycle (issue, verify, redeem, sell)
-- Worker management (create, disable, reset password, cash-allowed toggle)
+- Worker management (create, disable, reset password, cash-allowed)
 - Branch management with CRE assignment
 - Expense submission and approval workflow
 - Worker ledger and financial tracking
-- Area management
-- Attendance Module (punch-in/out + admin dashboard)
-- Worker "Cash Allowed" logic
-- Admin deletion overhaul (soft/hard/force delete for all entities)
-- ForceDeleteModal reusable component
+- Area management, Attendance Module
+- Admin deletion overhaul (soft/hard/force delete)
 
 ### P0 Fixes (March 2026)
-1. **Force Delete Coupon** - Unified `DELETE /api/admin/coupons/{id}?force=true` checks both collections
-2. **Admin Dashboard Stats** - Consolidated `GET /api/admin/dashboard-stats` with IST timezone
-3. **Worker Photo Gallery + Retake** - SaleCoupon step 2 with Capture/Gallery/Retake/Upload Different
-4. **CRE Remarks Deletable** - `DELETE /api/cre/call-log/{log_id}` with RBAC
+1. Force Delete Coupon — unified endpoint checks both collections
+2. Admin Dashboard Stats — IST-aware consolidated endpoint
+3. Worker Photo Gallery + Retake
+4. CRE Remarks Deletable
 
-### Latest Session (March 12, 2026)
-1. **Removed "Made with Emergent" badge** - Cleaned index.html, updated page title to "FieldFlow Pro", updated meta description
-2. **CRE Remarks Delete in Admin Ledger** - Added Actions column with trash icon, confirmation dialog with remark details, instant row removal, badge count update, success toast
-3. **Enhanced Command Center Dashboard** - Added second stats row with 8 additional cards (Revenue Month, Sales Month, Active Campaigns, Coupons Available, Total Workers, Total Branches, Total Areas, Expenses Month). Added IST timestamp display. Backend now returns `total_branches` and includes debug logging.
+### Session: March 12, 2026
+1. Removed "Made with Emergent" badge, rebranded to FieldFlow Pro
+2. CRE Remarks delete in Admin Ledger (Actions column, confirmation dialog)
+3. Enhanced Command Center Dashboard (16 stat cards, IST timestamp)
+
+### Session: March 27, 2026
+1. **Admin Coupons Page Rewrite** — Merged campaign_coupons + legacy coupons into unified view with full customer details (name, mobile, coupon code, campaign, worker, branch, sold date, photo, status, source). Search, status/source filters, photo preview modal, Excel export, delete with confirmation.
+2. **Worker Data Entry** — New page replacing "My Sales" in sidebar. Form: Customer Name, Mobile Number, City, Notes. Worker sees own entries table. Backend: POST /api/worker/data-entry, GET /api/worker/data-entry/me. Collection: manual_customer_entries.
+3. **Admin Data Entry** — New page showing all worker entries. Search by name/mobile/city, filter by worker/date range. Excel export (admin only). Backend: GET /api/admin/data-entry, GET /api/admin/data-entry/export.
 
 ## Key API Endpoints
-- `GET /api/admin/dashboard-stats` - Consolidated IST-aware dashboard stats (19 fields)
-- `DELETE /api/admin/coupons/{id}?force=true` - Unified coupon delete (both collections)
+- `GET /api/admin/dashboard-stats` - IST-aware dashboard stats (19 fields)
+- `GET /api/admin/coupons` - Merged coupon view with filters
+- `DELETE /api/admin/coupons/{id}?force=true` - Unified coupon delete
+- `GET /api/admin/data-entry` - All worker data entries
+- `GET /api/admin/data-entry/export` - Export data entries
+- `POST /api/worker/data-entry` - Worker creates data entry
+- `GET /api/worker/data-entry/me` - Worker's own entries
 - `DELETE /api/cre/call-log/{log_id}` - CRE remark delete with RBAC
-- `GET /api/admin/cre-remarks` - Admin view of all CRE remarks
-- `POST /api/attendance/punch-in` / `punch-out` - Worker attendance
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
@@ -82,5 +86,4 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 - DB migration: MongoDB → PostgreSQL
 - Image storage: Local → AWS S3
 - Frontend: React + Vite migration
-- Full PWA/offline-first strategy
-- Replace mock OTP with real SMS (Twilio)
+- Full PWA/offline-first, Replace mock OTP with real SMS (Twilio)
