@@ -12,23 +12,19 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ```
 /app/backend/
   server.py - Main app, core endpoints, worker data entry
-  routes_admin.py - Admin management, dashboard stats, admin coupons, admin data entry
+  routes_admin.py - Admin management, dashboard stats, admin coupons (decrypted), admin data entry
   routes_campaigns.py - Campaign CRUD + coupon management
   routes_cre_branch.py - CRE & Branch operations + call log delete
   routes_intelligence.py - Analytics & scoring
-  routes_ledger.py - Financial ledger
-  routes_payments.py - Razorpay integration
-  routes_attendance.py - Punch in/out
-  routes_areas.py - Area management
-  models.py - Pydantic models
-  auth.py - JWT auth, utils.py - Encryption/helpers
+  routes_ledger.py, routes_payments.py, routes_attendance.py, routes_areas.py
+  models.py, auth.py, utils.py (encrypt/decrypt mobile)
 
 /app/frontend/src/
-  pages/admin/ - Dashboard, Workers, Campaigns, Coupons, Branches, Ledger, DataEntry, etc.
+  pages/admin/ - Dashboard, Workers, Campaigns, Coupons, Branches, Ledger, DataEntry
   pages/worker/ - Dashboard, SaleCoupon, Attendance, Expenses, DataEntry
   pages/cre/ - CRE Dashboard
   pages/branch/ - Branch Dashboard
-  components/ - Layout, ForceDeleteModal, PaymentQR, etc.
+  components/ - Layout, ForceDeleteModal, PaymentQR
   lib/api.js - API client
 ```
 
@@ -41,49 +37,47 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ## What's Been Implemented
 
 ### Core Features (Complete)
-- Multi-role auth (admin, worker, CRE, branch)
-- Campaign management (CRUD, coupon generation, worker assignment)
-- Coupon lifecycle (issue, verify, redeem, sell)
-- Worker management (create, disable, reset password, cash-allowed)
-- Branch management with CRE assignment
-- Expense submission and approval workflow
-- Worker ledger and financial tracking
-- Area management, Attendance Module
+- Multi-role auth, Campaign management, Coupon lifecycle
+- Worker management, Branch management, Expense workflow
+- Worker ledger, Area management, Attendance Module
 - Admin deletion overhaul (soft/hard/force delete)
 
 ### P0 Fixes (March 2026)
 1. Force Delete Coupon — unified endpoint checks both collections
-2. Admin Dashboard Stats — IST-aware consolidated endpoint
+2. Admin Dashboard Stats — IST-aware consolidated endpoint (16 stat cards)
 3. Worker Photo Gallery + Retake
-4. CRE Remarks Deletable
+4. CRE Remarks Deletable + Admin Ledger delete UI
 
-### Session: March 12, 2026
-1. Removed "Made with Emergent" badge, rebranded to FieldFlow Pro
-2. CRE Remarks delete in Admin Ledger (Actions column, confirmation dialog)
-3. Enhanced Command Center Dashboard (16 stat cards, IST timestamp)
+### Admin Coupons (March 27, 2026)
+- **Merged View**: campaign_coupons + legacy coupons in one table
+- **Decrypted Phone**: Admin sees real mobile numbers (decrypt_mobile from utils.py)
+- **Photo Preview**: Thumbnail + full-size modal preview
+- **Filters**: Status (SOLD/AVAILABLE/etc.), Source (Campaign/Legacy/All), Search
+- **Excel Export**: Download Excel with customer details
+- **Delete**: Force delete with confirmation dialog
 
-### Session: March 27, 2026
-1. **Admin Coupons Page Rewrite** — Merged campaign_coupons + legacy coupons into unified view with full customer details (name, mobile, coupon code, campaign, worker, branch, sold date, photo, status, source). Search, status/source filters, photo preview modal, Excel export, delete with confirmation.
-2. **Worker Data Entry** — New page replacing "My Sales" in sidebar. Form: Customer Name, Mobile Number, City, Notes. Worker sees own entries table. Backend: POST /api/worker/data-entry, GET /api/worker/data-entry/me. Collection: manual_customer_entries.
-3. **Admin Data Entry** — New page showing all worker entries. Search by name/mobile/city, filter by worker/date range. Excel export (admin only). Backend: GET /api/admin/data-entry, GET /api/admin/data-entry/export.
+### Worker & Admin Data Entry (March 27, 2026)
+- Worker Data Entry page (form + own entries table)
+- Admin Data Entry page (all entries, search/filter/Excel export)
+- Sidebar: Worker has "Data Entry" (replaced My Sales), Admin has "Data Entry"
 
 ## Key API Endpoints
-- `GET /api/admin/dashboard-stats` - IST-aware dashboard stats (19 fields)
-- `GET /api/admin/coupons` - Merged coupon view with filters
-- `DELETE /api/admin/coupons/{id}?force=true` - Unified coupon delete
+- `GET /api/admin/dashboard-stats` - IST-aware stats
+- `GET /api/admin/coupons` - Merged coupons with decrypted phone + photo
+- `DELETE /api/admin/coupons/{id}?force=true` - Unified delete
 - `GET /api/admin/data-entry` - All worker data entries
-- `GET /api/admin/data-entry/export` - Export data entries
-- `POST /api/worker/data-entry` - Worker creates data entry
+- `POST /api/worker/data-entry` - Worker creates entry
 - `GET /api/worker/data-entry/me` - Worker's own entries
-- `DELETE /api/cre/call-log/{log_id}` - CRE remark delete with RBAC
+- `DELETE /api/cre/call-log/{log_id}` - CRE remark delete
+
+## Important Technical Notes
+- **Phone Encryption**: Customer phones stored encrypted via `encrypt_mobile()` in utils.py. Admin coupons endpoint uses `decrypt_mobile()` to show readable numbers. Other roles see last4 only.
+- **Photo URLs**: Stored as relative paths. Backend constructs `/api/uploads/{filename}`. Frontend prepends `REACT_APP_BACKEND_URL` for absolute URLs.
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
 
 ## Future Tasks (P2+)
-- Live Map feature (Mapbox)
-- WebSocket real-time updates for CRE dashboard
-- DB migration: MongoDB → PostgreSQL
-- Image storage: Local → AWS S3
-- Frontend: React + Vite migration
-- Full PWA/offline-first, Replace mock OTP with real SMS (Twilio)
+- Live Map (Mapbox), WebSocket real-time updates
+- DB migration (PostgreSQL), Image storage (S3)
+- Vite migration, PWA, Real SMS (Twilio)

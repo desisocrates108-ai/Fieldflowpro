@@ -284,7 +284,7 @@ export default function CouponsPage() {
                           {coupon.photo_url ? (
                             <button
                               onClick={() => openPhoto(coupon.photo_url)}
-                              className="w-8 h-8 rounded border overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all"
+                              className="w-8 h-8 rounded border overflow-hidden hover:ring-2 hover:ring-blue-400 transition-all cursor-pointer"
                               title="View photo"
                               data-testid={`view-photo-${coupon.id}`}
                             >
@@ -292,11 +292,11 @@ export default function CouponsPage() {
                                 src={coupon.photo_url.startsWith('http') ? coupon.photo_url : `${BACKEND_URL}${coupon.photo_url}`}
                                 alt="Coupon" 
                                 className="w-full h-full object-cover"
-                                onError={(e) => { e.target.style.display = 'none'; }}
+                                onError={(e) => { e.target.parentElement.innerHTML = '<span class="text-[9px] text-zinc-400 flex items-center justify-center h-full">Err</span>'; }}
                               />
                             </button>
                           ) : (
-                            <span className="text-zinc-300 text-xs">-</span>
+                            <span className="text-zinc-300 text-[10px]">No Photo</span>
                           )}
                         </TableCell>
                         <TableCell>

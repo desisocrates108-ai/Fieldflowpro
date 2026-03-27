@@ -17,6 +17,7 @@ from models import (
     AdminDashboardStats
 )
 from auth import get_current_user, require_roles, get_password_hash
+from utils import decrypt_mobile
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -1119,7 +1120,7 @@ async def get_admin_coupons(
         if search:
             query["$or"] = [
                 {"customer_name": {"$regex": search, "$options": "i"}},
-                {"customer_phone": {"$regex": search, "$options": "i"}},
+                {"customer_phone_last4": {"$regex": search, "$options": "i"}},
                 {"code": {"$regex": search, "$options": "i"}},
             ]
         
@@ -1153,16 +1154,22 @@ async def get_admin_coupons(
             worker = workers_map.get(c.get("sold_by_worker_id"), {})
             branch = branches_map.get(campaign.get("branch_id"), {})
             
+            # Decrypt phone for admin view
+            raw_phone = c.get("customer_phone") or ""
+            decrypted_phone = decrypt_mobile(raw_phone) if raw_phone else ""
+            
+            # Build photo URL
             photo = c.get("photo_url")
             if photo and not photo.startswith("http"):
-                photo = f"/api/uploads/{photo.split('/')[-1]}" if "/" in photo else f"/api/uploads/{photo}"
+                filename = photo.split("/")[-1] if "/" in photo else photo
+                photo = f"/api/uploads/{filename}"
             
             results.append({
                 "id": c["id"],
                 "code": c.get("code", ""),
                 "status": c.get("status", "UNKNOWN"),
                 "customer_name": c.get("customer_name") or "",
-                "customer_phone": c.get("customer_phone") or "",
+                "customer_phone": decrypted_phone,
                 "campaign_name": campaign.get("name", ""),
                 "campaign_price": campaign.get("price", 0),
                 "worker_name": worker.get("name", ""),
@@ -1181,7 +1188,7 @@ async def get_admin_coupons(
         if search:
             query["$or"] = [
                 {"customer_name": {"$regex": search, "$options": "i"}},
-                {"customer_phone": {"$regex": search, "$options": "i"}},
+                {"customer_phone_last4": {"$regex": search, "$options": "i"}},
                 {"code": {"$regex": search, "$options": "i"}},
             ]
         
@@ -1195,19 +1202,29 @@ async def get_admin_coupons(
             if worker_id:
                 worker = await db.users.find_one({"id": worker_id}, {"_id": 0, "id": 1, "name": 1}) or {}
             
+            # Decrypt phone for admin view
+            raw_phone = c.get("customer_phone") or ""
+            decrypted_phone = decrypt_mobile(raw_phone) if raw_phone else ""
+            
+            # Build photo URL
+            photo = c.get("photo_url")
+            if photo and not photo.startswith("http"):
+                filename = photo.split("/")[-1] if "/" in photo else photo
+                photo = f"/api/uploads/{filename}"
+            
             results.append({
                 "id": c["id"],
                 "code": c.get("code") or c.get("coupon_code", ""),
                 "status": c.get("status", "UNKNOWN"),
                 "customer_name": c.get("customer_name") or "",
-                "customer_phone": c.get("customer_phone") or "",
+                "customer_phone": decrypted_phone,
                 "campaign_name": c.get("campaign_name", "Legacy"),
                 "campaign_price": c.get("price", 0),
                 "worker_name": worker.get("name", ""),
                 "branch_name": c.get("branch_name", ""),
                 "sold_at": c.get("sold_at") or c.get("issued_at"),
                 "created_at": c.get("issued_at") or c.get("created_at"),
-                "photo_url": c.get("photo_url"),
+                "photo_url": photo,
                 "source": "legacy",
             })
     
