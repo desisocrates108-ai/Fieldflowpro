@@ -40,6 +40,7 @@ const getNavItems = (role) => {
       { path: '/admin/campaigns', icon: Package, label: 'Campaigns' },
       { path: '/admin/ledger', icon: Receipt, label: 'Ledger' },
       { path: '/admin/coupons', icon: Ticket, label: 'Coupons' },
+      { path: '/admin/data-entry', icon: ClipboardList, label: 'Data Entry' },
       { path: '/admin/branches', icon: Building2, label: 'Branches' },
       { path: '/admin/api-keys', icon: Key, label: 'API Keys' },
       { path: '/admin/audit-logs', icon: FileText, label: 'Audit Logs' },
@@ -52,7 +53,7 @@ const getNavItems = (role) => {
       { path: '/worker/attendance', icon: Clock, label: 'Attendance' },
       { path: '/worker/sell', icon: Ticket, label: 'Sale Coupon' },
       { path: '/worker/expenses', icon: Receipt, label: 'Expenses' },
-      { path: '/worker/my-coupons', icon: FileText, label: 'My Sales' },
+      { path: '/worker/data-entry', icon: ClipboardList, label: 'Data Entry' },
     ],
     branch: [
       { path: '/branch', icon: LayoutDashboard, label: 'Dashboard' },

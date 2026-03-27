@@ -1094,6 +1094,213 @@ async def delete_api_key(
     return {"message": "API key deleted"}
 
 
+# ========== Admin Coupons (Full View) ==========
+
+@router.get("/coupons")
+async def get_admin_coupons(
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """
+    Admin endpoint: returns ALL coupons (campaign + legacy) with full customer details,
+    joined with campaign, worker, and branch info.
+    """
+    results = []
+    
+    # --- Campaign coupons ---
+    if source in (None, "all", "campaign"):
+        query = {}
+        if status and status != "all":
+            query["status"] = status
+        if search:
+            query["$or"] = [
+                {"customer_name": {"$regex": search, "$options": "i"}},
+                {"customer_phone": {"$regex": search, "$options": "i"}},
+                {"code": {"$regex": search, "$options": "i"}},
+            ]
+        
+        campaign_coupons = await db.campaign_coupons.find(
+            query, {"_id": 0}
+        ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        # Batch-fetch campaigns, workers
+        campaign_ids = list(set(c.get("campaign_id") for c in campaign_coupons if c.get("campaign_id")))
+        worker_ids = list(set(c.get("sold_by_worker_id") for c in campaign_coupons if c.get("sold_by_worker_id")))
+        
+        campaigns_map = {}
+        if campaign_ids:
+            campaigns = await db.campaigns.find({"id": {"$in": campaign_ids}}, {"_id": 0, "id": 1, "name": 1, "branch_id": 1, "price": 1}).to_list(500)
+            campaigns_map = {c["id"]: c for c in campaigns}
+        
+        workers_map = {}
+        if worker_ids:
+            workers = await db.users.find({"id": {"$in": worker_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+            workers_map = {w["id"]: w for w in workers}
+        
+        # Batch-fetch branches
+        branch_ids = list(set(c.get("branch_id") for c in campaigns_map.values() if c.get("branch_id")))
+        branches_map = {}
+        if branch_ids:
+            branches = await db.users.find({"id": {"$in": branch_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+            branches_map = {b["id"]: b for b in branches}
+        
+        for c in campaign_coupons:
+            campaign = campaigns_map.get(c.get("campaign_id"), {})
+            worker = workers_map.get(c.get("sold_by_worker_id"), {})
+            branch = branches_map.get(campaign.get("branch_id"), {})
+            
+            photo = c.get("photo_url")
+            if photo and not photo.startswith("http"):
+                photo = f"/api/uploads/{photo.split('/')[-1]}" if "/" in photo else f"/api/uploads/{photo}"
+            
+            results.append({
+                "id": c["id"],
+                "code": c.get("code", ""),
+                "status": c.get("status", "UNKNOWN"),
+                "customer_name": c.get("customer_name") or "",
+                "customer_phone": c.get("customer_phone") or "",
+                "campaign_name": campaign.get("name", ""),
+                "campaign_price": campaign.get("price", 0),
+                "worker_name": worker.get("name", ""),
+                "branch_name": branch.get("name", ""),
+                "sold_at": c.get("sold_at"),
+                "created_at": c.get("created_at"),
+                "photo_url": photo,
+                "source": "campaign",
+            })
+    
+    # --- Legacy coupons ---
+    if source in (None, "all", "legacy"):
+        query = {}
+        if status and status != "all":
+            query["status"] = status
+        if search:
+            query["$or"] = [
+                {"customer_name": {"$regex": search, "$options": "i"}},
+                {"customer_phone": {"$regex": search, "$options": "i"}},
+                {"code": {"$regex": search, "$options": "i"}},
+            ]
+        
+        legacy_coupons = await db.coupons.find(
+            query, {"_id": 0}
+        ).sort("issued_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        for c in legacy_coupons:
+            worker_id = c.get("worker_id")
+            worker = {}
+            if worker_id:
+                worker = await db.users.find_one({"id": worker_id}, {"_id": 0, "id": 1, "name": 1}) or {}
+            
+            results.append({
+                "id": c["id"],
+                "code": c.get("code") or c.get("coupon_code", ""),
+                "status": c.get("status", "UNKNOWN"),
+                "customer_name": c.get("customer_name") or "",
+                "customer_phone": c.get("customer_phone") or "",
+                "campaign_name": c.get("campaign_name", "Legacy"),
+                "campaign_price": c.get("price", 0),
+                "worker_name": worker.get("name", ""),
+                "branch_name": c.get("branch_name", ""),
+                "sold_at": c.get("sold_at") or c.get("issued_at"),
+                "created_at": c.get("issued_at") or c.get("created_at"),
+                "photo_url": c.get("photo_url"),
+                "source": "legacy",
+            })
+    
+    # Count totals
+    total_campaign = await db.campaign_coupons.count_documents({})
+    total_legacy = await db.coupons.count_documents({})
+    
+    return {
+        "coupons": results,
+        "total": len(results),
+        "total_campaign": total_campaign,
+        "total_legacy": total_legacy,
+    }
+
+
+# ========== Admin Data Entry ==========
+
+@router.get("/data-entry")
+async def get_admin_data_entries(
+    search: Optional[str] = None,
+    worker_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: view all worker data entries with search and filters."""
+    query = {}
+    if search:
+        query["$or"] = [
+            {"customer_name": {"$regex": search, "$options": "i"}},
+            {"mobile_number": {"$regex": search, "$options": "i"}},
+            {"city": {"$regex": search, "$options": "i"}},
+        ]
+    if worker_id:
+        query["worker_id"] = worker_id
+    if date_from:
+        query.setdefault("created_at", {})["$gte"] = date_from
+    if date_to:
+        query.setdefault("created_at", {})["$lte"] = date_to
+    
+    entries = await db.manual_customer_entries.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    total = await db.manual_customer_entries.count_documents(query)
+    
+    # Get unique workers for filter dropdown
+    workers_pipeline = [
+        {"$group": {"_id": "$worker_id", "name": {"$first": "$worker_name"}}},
+        {"$sort": {"name": 1}}
+    ]
+    workers_list = await db.manual_customer_entries.aggregate(workers_pipeline).to_list(100)
+    unique_workers = [{"id": w["_id"], "name": w["name"]} for w in workers_list]
+    
+    return {
+        "entries": entries,
+        "total": total,
+        "workers": unique_workers,
+    }
+
+
+@router.get("/data-entry/export")
+async def export_admin_data_entries(
+    search: Optional[str] = None,
+    worker_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: export all data entries as JSON (frontend builds Excel)."""
+    query = {}
+    if search:
+        query["$or"] = [
+            {"customer_name": {"$regex": search, "$options": "i"}},
+            {"mobile_number": {"$regex": search, "$options": "i"}},
+            {"city": {"$regex": search, "$options": "i"}},
+        ]
+    if worker_id:
+        query["worker_id"] = worker_id
+    if date_from:
+        query.setdefault("created_at", {})["$gte"] = date_from
+    if date_to:
+        query.setdefault("created_at", {})["$lte"] = date_to
+    
+    entries = await db.manual_customer_entries.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).to_list(10000)
+    
+    return {"entries": entries}
+
+
 # ========== Unified Coupon Delete (Admin) ==========
 
 @router.delete("/coupons/{coupon_id}")

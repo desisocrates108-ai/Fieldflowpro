@@ -20,6 +20,7 @@ import AdminLedgerPage from "./pages/admin/Ledger";
 import LoginManagementPage from "./pages/admin/LoginManagement";
 import ApiKeysPage from "./pages/admin/ApiKeys";
 import AdminAttendancePage from "./pages/admin/Attendance";
+import AdminDataEntryPage from "./pages/admin/DataEntry";
 
 // Worker Pages
 import WorkerDashboard from "./pages/worker/Dashboard";
@@ -29,6 +30,7 @@ import SaleCouponPage from "./pages/worker/SaleCoupon";
 import MyCouponsPage from "./pages/worker/MyCoupons";
 import TasksPage from "./pages/worker/Tasks";
 import ExpensesPage from "./pages/worker/Expenses";
+import WorkerDataEntryPage from "./pages/worker/DataEntry";
 
 // Branch Pages
 import BranchDashboard from "./pages/branch/Dashboard";
@@ -201,6 +203,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/data-entry"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDataEntryPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Worker Routes */}
       <Route
@@ -240,6 +250,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['worker']}>
             <ExpensesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/worker/data-entry"
+        element={
+          <ProtectedRoute allowedRoles={['worker']}>
+            <WorkerDataEntryPage />
           </ProtectedRoute>
         }
       />

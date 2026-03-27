@@ -1593,6 +1593,54 @@ routes_payments.init_routes(db, create_audit_log)
 routes_attendance.init_routes(db, create_audit_log)
 background_tasks.init_background_tasks(db)
 
+# ========== Worker Data Entry ==========
+
+@api_router.post("/worker/data-entry")
+async def create_data_entry(
+    request: Request,
+    current_user: dict = Depends(require_roles("worker"))
+):
+    """Worker: create a manual customer data entry."""
+    body = await request.json()
+    
+    customer_name = body.get("customer_name", "").strip()
+    mobile_number = body.get("mobile_number", "").strip()
+    city = body.get("city", "").strip()
+    notes = body.get("notes", "").strip()
+    
+    if not customer_name or not mobile_number or not city:
+        raise HTTPException(status_code=400, detail="customer_name, mobile_number, and city are required")
+    
+    worker = await db.users.find_one({"id": current_user["sub"]}, {"_id": 0, "name": 1})
+    
+    entry = {
+        "id": str(uuid.uuid4()),
+        "customer_name": customer_name,
+        "mobile_number": mobile_number,
+        "city": city,
+        "notes": notes,
+        "worker_id": current_user["sub"],
+        "worker_name": worker.get("name", "") if worker else "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.manual_customer_entries.insert_one(entry)
+    entry.pop("_id", None)
+    
+    return {"message": "Entry saved successfully", "entry": entry}
+
+
+@api_router.get("/worker/data-entry/me")
+async def get_my_data_entries(
+    current_user: dict = Depends(require_roles("worker"))
+):
+    """Worker: get only their own data entries."""
+    entries = await db.manual_customer_entries.find(
+        {"worker_id": current_user["sub"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    
+    return {"entries": entries, "total": len(entries)}
+
 # Include the router
 app.include_router(api_router)
 
