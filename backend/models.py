@@ -325,6 +325,13 @@ class BranchCreate(BaseModel):
     longitude: float
     contact_phone: Optional[str] = None
 
+class BranchUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    contact_phone: Optional[str] = None
+
 class Branch(BaseModel):
     model_config = ConfigDict(extra="ignore")
     

@@ -20,7 +20,7 @@ from models import (
     CouponCreate, CouponIssue, Coupon, CouponResponseFull, CouponResponseMasked, CouponResponseWorker,
     CouponSummary, UpdatePossessionCount, CouponVerify,
     BookingCreate, Booking, BookingResponse, BookingResponseMasked, BookingStatusUpdate,
-    BranchCreate, Branch, BranchResponse, BranchAssign,
+    BranchCreate, BranchUpdate, Branch, BranchResponse, BranchAssign,
     TaskCreate, Task, TaskResponse, TaskUpdate,
     LocationUpdate, LocationLog,
     DashboardStats, OTPRequest, OTPVerify,
@@ -1098,6 +1098,40 @@ async def get_nearest_branch(latitude: float, longitude: float, current_user: di
     
     nearest = find_nearest_branch(branches, latitude, longitude)
     return nearest
+
+
+@api_router.patch("/branches/{branch_id}")
+async def update_branch(
+    branch_id: str,
+    data: BranchUpdate,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Update branch details."""
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    update_fields = {}
+    if data.name is not None:
+        update_fields["name"] = data.name
+    if data.address is not None:
+        update_fields["address"] = data.address
+    if data.latitude is not None:
+        update_fields["latitude"] = data.latitude
+    if data.longitude is not None:
+        update_fields["longitude"] = data.longitude
+    if data.contact_phone is not None:
+        update_fields["contact_phone"] = data.contact_phone
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    await db.branches.update_one({"id": branch_id}, {"$set": update_fields})
+    
+    updated = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    return updated
+
 
 
 @api_router.delete("/branches/{branch_id}")

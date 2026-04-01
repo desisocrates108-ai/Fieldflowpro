@@ -1,35 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { branchAPI } from '../../lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
-import { Alert, AlertDescription } from '../../components/ui/alert';
 import ForceDeleteModal from '../../components/ForceDeleteModal';
-import { Loader2, Building2, Plus, MapPin, Phone, Trash2, Power, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Loader2, Building2, Plus, MapPin, Phone, Trash2, Power, Pencil } from 'lucide-react';
 import { formatDateTime } from '../../lib/utils';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+const emptyForm = { name: '', address: '', latitude: '', longitude: '', contact_phone: '' };
+
 export default function BranchesPage() {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    latitude: '',
-    longitude: '',
-    contact_phone: ''
-  });
+  const [formData, setFormData] = useState({ ...emptyForm });
   const [submitting, setSubmitting] = useState(false);
   
-  // Delete/Deactivate dialog
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editData, setEditData] = useState({ ...emptyForm });
+  const [editBranchId, setEditBranchId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  
+  // Delete
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -40,25 +41,20 @@ export default function BranchesPage() {
       const response = await branchAPI.getAll();
       setBranches(response.data);
     } catch (error) {
-      console.error('Failed to fetch branches:', error);
       toast.error('Failed to load branches');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBranches();
-  }, []);
+  useEffect(() => { fetchBranches(); }, []);
 
-  const handleSubmit = async (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
-    
     if (!formData.name || !formData.address || !formData.latitude || !formData.longitude) {
       toast.error('Please fill in all required fields');
       return;
     }
-
     setSubmitting(true);
     try {
       await branchAPI.create({
@@ -70,30 +66,81 @@ export default function BranchesPage() {
       });
       toast.success('Branch created successfully');
       setDialogOpen(false);
-      setFormData({ name: '', address: '', latitude: '', longitude: '', contact_phone: '' });
+      setFormData({ ...emptyForm });
       fetchBranches();
-    } catch (error) {
-      console.error('Failed to create branch:', error);
+    } catch {
       toast.error('Failed to create branch');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleGetLocation = () => {
+  const openEditDialog = (branch) => {
+    setEditBranchId(branch.id);
+    setEditData({
+      name: branch.name || '',
+      address: branch.address || '',
+      latitude: branch.latitude?.toString() || '',
+      longitude: branch.longitude?.toString() || '',
+      contact_phone: branch.contact_phone || ''
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editData.name || !editData.address) {
+      toast.error('Branch Name and Address are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const payload = {
+        name: editData.name,
+        address: editData.address,
+        contact_phone: editData.contact_phone || null,
+      };
+      if (editData.latitude) payload.latitude = parseFloat(editData.latitude);
+      if (editData.longitude) payload.longitude = parseFloat(editData.longitude);
+
+      const res = await fetch(`${API_URL}/api/branches/${editBranchId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        toast.success('Branch updated successfully');
+        setEditDialogOpen(false);
+        fetchBranches();
+      } else {
+        const err = await res.json();
+        toast.error(err.detail || 'Failed to update branch');
+      }
+    } catch {
+      toast.error('Failed to update branch');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleGetLocation = (target) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setFormData({
-            ...formData,
-            latitude: position.coords.latitude.toFixed(6),
-            longitude: position.coords.longitude.toFixed(6)
-          });
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          if (target === 'create') {
+            setFormData(f => ({ ...f, latitude: lat, longitude: lng }));
+          } else {
+            setEditData(f => ({ ...f, latitude: lat, longitude: lng }));
+          }
           toast.success('Location captured');
         },
-        (error) => {
-          toast.error('Failed to get location');
-        }
+        () => toast.error('Failed to get location')
       );
     } else {
       toast.error('Geolocation not supported');
@@ -111,7 +158,7 @@ export default function BranchesPage() {
         const data = await response.json();
         setBranchDependencies(data.dependencies || {});
       }
-    } catch (error) {
+    } catch {
       setBranchDependencies({});
     }
     setDeleteDialogOpen(true);
@@ -119,7 +166,6 @@ export default function BranchesPage() {
 
   const handleDeleteBranch = async (forceDelete) => {
     if (!branchToDelete) return;
-    
     setDeleting(true);
     try {
       const token = localStorage.getItem('access_token');
@@ -128,9 +174,7 @@ export default function BranchesPage() {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
       const result = await response.json();
-      
       if (response.ok) {
         toast.success(result.message);
         fetchBranches();
@@ -139,7 +183,7 @@ export default function BranchesPage() {
       } else {
         toast.error(result.detail || 'Failed to remove branch');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove branch');
     } finally {
       setDeleting(false);
@@ -153,120 +197,106 @@ export default function BranchesPage() {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
       if (response.ok) {
         toast.success('Branch activated');
         fetchBranches();
       } else {
         toast.error('Failed to activate branch');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to activate branch');
     }
   };
 
+  const BranchForm = ({ data, onChange, onSubmit, onGetLocation, submitLabel, loading: isLoading, locationTarget }) => (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label>Branch Name *</Label>
+        <Input
+          placeholder="Main Branch"
+          value={data.name}
+          onChange={(e) => onChange({ ...data, name: e.target.value })}
+          data-testid="branch-name-input"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Address *</Label>
+        <Input
+          placeholder="123 Main Street"
+          value={data.address}
+          onChange={(e) => onChange({ ...data, address: e.target.value })}
+          data-testid="branch-address-input"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Latitude</Label>
+          <Input
+            type="number" step="any" placeholder="28.6139"
+            value={data.latitude}
+            onChange={(e) => onChange({ ...data, latitude: e.target.value })}
+            data-testid="branch-lat-input"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Longitude</Label>
+          <Input
+            type="number" step="any" placeholder="77.2090"
+            value={data.longitude}
+            onChange={(e) => onChange({ ...data, longitude: e.target.value })}
+            data-testid="branch-lng-input"
+          />
+        </div>
+      </div>
+      <Button type="button" variant="outline" onClick={() => onGetLocation(locationTarget)} className="w-full">
+        <MapPin className="h-4 w-4 mr-2" /> Use Current Location
+      </Button>
+      <div className="space-y-2">
+        <Label>Contact Phone</Label>
+        <Input
+          type="tel" placeholder="+91 98765 43210"
+          value={data.contact_phone}
+          onChange={(e) => onChange({ ...data, contact_phone: e.target.value })}
+          data-testid="branch-phone-input"
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={isLoading} data-testid="submit-branch-btn">
+        {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : submitLabel}
+      </Button>
+    </form>
+  );
+
   return (
     <Layout>
       <div className="space-y-6" data-testid="branches-page">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
-              Branches
-            </h1>
-            <p className="text-zinc-500 mt-1">
-              Manage service branches
-            </p>
+            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">Branches</h1>
+            <p className="text-zinc-500 mt-1">Manage service branches</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="add-branch-btn">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Branch
+                <Plus className="h-4 w-4 mr-2" /> Add Branch
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="font-['Barlow_Condensed']">Add New Branch</DialogTitle>
+                <DialogTitle>Add New Branch</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Branch Name *</Label>
-                  <Input
-                    id="name"
-                    placeholder="Main Branch"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    data-testid="branch-name-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address *</Label>
-                  <Input
-                    id="address"
-                    placeholder="123 Main Street"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    data-testid="branch-address-input"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="latitude">Latitude *</Label>
-                    <Input
-                      id="latitude"
-                      type="number"
-                      step="any"
-                      placeholder="37.7749"
-                      value={formData.latitude}
-                      onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                      data-testid="branch-lat-input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="longitude">Longitude *</Label>
-                    <Input
-                      id="longitude"
-                      type="number"
-                      step="any"
-                      placeholder="-122.4194"
-                      value={formData.longitude}
-                      onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                      data-testid="branch-lng-input"
-                    />
-                  </div>
-                </div>
-                <Button type="button" variant="outline" onClick={handleGetLocation} className="w-full">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Use Current Location
-                </Button>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_phone">Contact Phone</Label>
-                  <Input
-                    id="contact_phone"
-                    type="tel"
-                    placeholder="+1 234 567 8900"
-                    value={formData.contact_phone}
-                    onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                    data-testid="branch-phone-input"
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={submitting} data-testid="submit-branch-btn">
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Branch'
-                  )}
-                </Button>
-              </form>
+              <BranchForm
+                data={formData}
+                onChange={setFormData}
+                onSubmit={handleCreate}
+                onGetLocation={handleGetLocation}
+                submitLabel="Create Branch"
+                loading={submitting}
+                locationTarget="create"
+              />
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Branches Table */}
         <Card>
           <CardContent className="p-0">
             {loading ? (
@@ -277,7 +307,6 @@ export default function BranchesPage() {
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Building2 className="h-12 w-12 text-zinc-300 mb-4" />
                 <p className="text-zinc-500">No branches found</p>
-                <p className="text-sm text-zinc-400">Add your first branch to get started</p>
               </div>
             ) : (
               <Table>
@@ -289,12 +318,12 @@ export default function BranchesPage() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-28">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {branches.map((branch) => (
-                    <TableRow key={branch.id} className="table-row-hover">
+                    <TableRow key={branch.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -311,7 +340,7 @@ export default function BranchesPage() {
                       </TableCell>
                       <TableCell>
                         <code className="text-xs bg-zinc-100 px-2 py-1 rounded">
-                          {branch.latitude.toFixed(4)}, {branch.longitude.toFixed(4)}
+                          {branch.latitude?.toFixed(4)}, {branch.longitude?.toFixed(4)}
                         </code>
                       </TableCell>
                       <TableCell>
@@ -329,11 +358,20 @@ export default function BranchesPage() {
                           {branch.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-zinc-600">
+                      <TableCell className="text-zinc-600 text-sm">
                         {formatDateTime(branch.created_at)}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 text-blue-600 border-blue-300 hover:bg-blue-50"
+                            onClick={() => openEditDialog(branch)}
+                            data-testid={`edit-branch-${branch.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
                           {!branch.is_active && (
                             <Button
                               size="sm"
@@ -364,13 +402,30 @@ export default function BranchesPage() {
           </CardContent>
         </Card>
 
+        {/* Edit Branch Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-4 w-4" /> Edit Branch
+              </DialogTitle>
+            </DialogHeader>
+            <BranchForm
+              data={editData}
+              onChange={setEditData}
+              onSubmit={handleUpdate}
+              onGetLocation={handleGetLocation}
+              submitLabel="Save Changes"
+              loading={saving}
+              locationTarget="edit"
+            />
+          </DialogContent>
+        </Dialog>
+
         {/* Force Delete Modal */}
         <ForceDeleteModal
           open={deleteDialogOpen}
-          onClose={() => {
-            setDeleteDialogOpen(false);
-            setBranchToDelete(null);
-          }}
+          onClose={() => { setDeleteDialogOpen(false); setBranchToDelete(null); }}
           onConfirm={handleDeleteBranch}
           title="Delete Branch"
           itemName={branchToDelete?.name || ''}
