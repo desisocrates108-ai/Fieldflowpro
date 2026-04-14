@@ -104,8 +104,8 @@ export const Layout = ({ children }) => {
           </button>
         </div>
         
-        {/* Navigation */}
-        <nav className="p-4 space-y-1">
+        {/* Navigation - scrollable area between header and user section */}
+        <nav className="p-4 space-y-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px - 100px)' }}>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
