@@ -1281,9 +1281,19 @@ async def get_admin_data_entries(
     workers_list = await db.manual_customer_entries.aggregate(workers_pipeline).to_list(100)
     unique_workers = [{"id": w["_id"], "name": w["name"]} for w in workers_list]
     
+    # Today's entry count (IST)
+    ist = ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    today_ist_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc_start = today_ist_start.astimezone(timezone.utc).isoformat()
+    today_count = await db.manual_customer_entries.count_documents({
+        "created_at": {"$gte": today_utc_start}
+    })
+
     return {
         "entries": entries,
         "total": total,
+        "today_count": today_count,
         "workers": unique_workers,
     }
 
@@ -1476,3 +1486,139 @@ async def get_database_stats(
             stats[collection] = 0
     
     return stats
+
+
+
+# ========== Sold Coupons (Admin) ==========
+
+@router.get("/sold-coupons")
+async def get_admin_sold_coupons(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    worker_id: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: view all sold coupons with full details, filters, and worker summaries."""
+    ist = ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    today_ist_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc_start = today_ist_start.astimezone(timezone.utc).isoformat()
+
+    query = {"status": "SOLD"}
+
+    if date_from:
+        query.setdefault("sold_at", {})["$gte"] = date_from
+    if date_to:
+        query.setdefault("sold_at", {})["$lte"] = date_to
+    if worker_id:
+        query["sold_by_worker_id"] = worker_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if branch_id:
+        query["branch_id"] = branch_id
+    if search:
+        query["$or"] = [
+            {"code": {"$regex": search, "$options": "i"}},
+            {"customer_name": {"$regex": search, "$options": "i"}},
+        ]
+
+    coupons = await db.campaign_coupons.find(
+        query, {"_id": 0}
+    ).sort("sold_at", -1).skip(skip).limit(limit).to_list(limit)
+
+    total = await db.campaign_coupons.count_documents(query)
+
+    # Today sold count
+    today_query = {"status": "SOLD", "sold_at": {"$gte": today_utc_start}}
+    today_sold = await db.campaign_coupons.count_documents(today_query)
+
+    # Gather unique IDs for lookup
+    worker_ids = list(set(c.get("sold_by_worker_id") for c in coupons if c.get("sold_by_worker_id")))
+    campaign_ids = list(set(c.get("campaign_id") for c in coupons if c.get("campaign_id")))
+    branch_ids_list = list(set(c.get("branch_id") for c in coupons if c.get("branch_id")))
+
+    # Batch lookup
+    workers_map = {}
+    if worker_ids:
+        workers = await db.users.find({"id": {"$in": worker_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+        workers_map = {w["id"]: w["name"] for w in workers}
+
+    campaigns_map = {}
+    if campaign_ids:
+        campaigns = await db.campaigns.find({"id": {"$in": campaign_ids}}, {"_id": 0, "id": 1, "name": 1, "price": 1}).to_list(500)
+        campaigns_map = {c["id"]: c for c in campaigns}
+
+    branches_map = {}
+    if branch_ids_list:
+        branches = await db.branches.find({"id": {"$in": branch_ids_list}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+        branches_map = {b["id"]: b["name"] for b in branches}
+
+    # Enrich coupons
+    enriched = []
+    for c in coupons:
+        campaign_info = campaigns_map.get(c.get("campaign_id"), {})
+        phone_display = ""
+        if c.get("customer_phone"):
+            try:
+                phone_display = decrypt_mobile(c["customer_phone"])
+            except Exception:
+                phone_display = f"****{c.get('customer_phone_last4', '')}"
+
+        photo_url = c.get("photo_url")
+        if photo_url and not photo_url.startswith("/"):
+            photo_url = f"/{photo_url}"
+
+        enriched.append({
+            "id": c.get("id"),
+            "code": c.get("code"),
+            "customer_name": c.get("customer_name", ""),
+            "customer_phone": phone_display,
+            "worker_id": c.get("sold_by_worker_id"),
+            "worker_name": workers_map.get(c.get("sold_by_worker_id"), "Unknown"),
+            "branch_id": c.get("branch_id"),
+            "branch_name": branches_map.get(c.get("branch_id"), "N/A"),
+            "campaign_id": c.get("campaign_id"),
+            "campaign_name": campaign_info.get("name", "Unknown"),
+            "campaign_price": campaign_info.get("price", 0),
+            "sold_at": c.get("sold_at"),
+            "payment_mode": c.get("payment_mode", "N/A"),
+            "photo_url": photo_url,
+            "city": c.get("city", ""),
+        })
+
+    # Worker sold summary
+    summary_pipeline = [
+        {"$match": {"status": "SOLD"}},
+        {"$group": {"_id": "$sold_by_worker_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    worker_summary_raw = await db.campaign_coupons.aggregate(summary_pipeline).to_list(500)
+    worker_summary = []
+    for ws in worker_summary_raw:
+        worker_summary.append({
+            "worker_id": ws["_id"],
+            "worker_name": workers_map.get(ws["_id"], "Unknown"),
+            "sold_count": ws["count"]
+        })
+
+    # Filter dropdowns
+    all_workers = await db.users.find({"role": "worker", "is_active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    all_campaigns = await db.campaigns.find({"status": "ACTIVE"}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    all_branches = await db.branches.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+
+    return {
+        "coupons": enriched,
+        "total": total,
+        "today_sold": today_sold,
+        "worker_summary": worker_summary,
+        "filters": {
+            "workers": [{"id": w["id"], "name": w["name"]} for w in all_workers],
+            "campaigns": [{"id": c["id"], "name": c["name"]} for c in all_campaigns],
+            "branches": [{"id": b["id"], "name": b["name"]} for b in all_branches],
+        }
+    }

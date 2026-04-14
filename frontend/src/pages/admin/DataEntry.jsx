@@ -15,6 +15,7 @@ export default function AdminDataEntry() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
   const [workers, setWorkers] = useState([]);
   
   // Filters
@@ -41,6 +42,7 @@ export default function AdminDataEntry() {
         const data = await res.json();
         setEntries(data.entries || []);
         setTotal(data.total || 0);
+        setTodayCount(data.today_count || 0);
         if (data.workers) setWorkers(data.workers);
       } else {
         toast.error('Failed to load data entries');
@@ -102,7 +104,11 @@ export default function AdminDataEntry() {
               Total entries: {total}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-50 border border-green-200 px-4 py-2 rounded-lg text-center" data-testid="today-entry-count">
+              <p className="text-xl font-bold text-green-700">{todayCount}</p>
+              <p className="text-[10px] text-green-600 font-medium">Today's Entries</p>
+            </div>
             <Button variant="outline" size="sm" onClick={fetchEntries} data-testid="refresh-data-entry-btn">
               <RefreshCcw className="h-4 w-4 mr-1" /> Refresh
             </Button>

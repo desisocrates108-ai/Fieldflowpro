@@ -21,6 +21,7 @@ import LoginManagementPage from "./pages/admin/LoginManagement";
 import ApiKeysPage from "./pages/admin/ApiKeys";
 import AdminAttendancePage from "./pages/admin/Attendance";
 import AdminDataEntryPage from "./pages/admin/DataEntry";
+import SoldCouponsPage from "./pages/admin/SoldCoupons";
 
 // Worker Pages
 import WorkerDashboard from "./pages/worker/Dashboard";
@@ -200,6 +201,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminAttendancePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/sold-coupons"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <SoldCouponsPage />
           </ProtectedRoute>
         }
       />

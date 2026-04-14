@@ -20,7 +20,8 @@ import {
   Package,
   Receipt,
   UserCog,
-  Key
+  Key,
+  ShoppingBag
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
@@ -40,6 +41,7 @@ const getNavItems = (role) => {
       { path: '/admin/campaigns', icon: Package, label: 'Campaigns' },
       { path: '/admin/ledger', icon: Receipt, label: 'Ledger' },
       { path: '/admin/coupons', icon: Ticket, label: 'Coupons' },
+      { path: '/admin/sold-coupons', icon: ShoppingBag, label: 'Sold Coupons' },
       { path: '/admin/data-entry', icon: ClipboardList, label: 'Data Entry' },
       { path: '/admin/branches', icon: Building2, label: 'Branches' },
       { path: '/admin/api-keys', icon: Key, label: 'API Keys' },
