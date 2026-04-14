@@ -34,22 +34,39 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ### Data Entry System
 - Worker Data Entry: form (name, mobile, city, notes) + own entries table
 - Admin Data Entry: all entries, search/filter by worker/date, Excel export
+- **Today's Entry Count**: Green card showing IST-aware count of today's entries
 
-### Branch Management (Latest - April 1, 2026)
-- **PATCH /api/branches/{branch_id}**: Update branch name, address, lat/lng, phone
-- **Edit Modal**: Prefilled form with all branch fields
-- **Reusable BranchForm** component for create + edit
+### Branch Management
+- PATCH /api/branches/{branch_id}: Update branch name, address, lat/lng, phone
+- Edit Modal: Prefilled form with all branch fields
 - Actions column: Edit (pencil), Activate (power), Delete (trash)
+
+### Sold Coupons Page (April 14, 2026)
+- **GET /api/admin/sold-coupons**: Full sold coupon history with enriched data
+- Decrypted customer phone numbers, worker/branch/campaign names
+- Photo thumbnails with full-size modal preview
+- Executive Sales Summary badges (worker sold count)
+- Filters: worker, campaign, branch, date range, Today button, search
+- Excel export, stats cards (Total Sold, Sold Today, Active Executives, Revenue)
+- Sidebar navigation: "Sold Coupons" between Coupons and Data Entry
+
+### Command Center Dashboard (Fixed April 14, 2026)
+- IST-aware stats: revenue_today, sales_today, active_workers_now, punched_in, etc.
+- Single consolidated endpoint: GET /api/admin/dashboard-stats
+- Auto-refresh every 30 seconds + manual Refresh button
+- bcrypt/passlib compatibility fixed (bcrypt 4.0.1)
 
 ## Key API Endpoints
 - `GET /api/admin/dashboard-stats` - IST-aware stats
+- `GET /api/admin/sold-coupons` - Sold coupons with filters and enriched data
 - `GET /api/admin/coupons` - Merged coupons with decrypted phone + photo
 - `DELETE /api/admin/coupons/{id}?force=true` - Unified delete
-- `GET /api/admin/data-entry` - All worker data entries
+- `GET /api/admin/data-entry` - All worker data entries (with today_count)
 - `POST /api/worker/data-entry` - Worker creates entry
 - `GET /api/worker/data-entry/me` - Worker's own entries
 - `PATCH /api/branches/{branch_id}` - Update branch details
 - `DELETE /api/cre/call-log/{log_id}` - CRE remark delete
+- `POST /api/campaigns/worker-sale` - Worker sale submission
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
