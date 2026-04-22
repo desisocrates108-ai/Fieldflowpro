@@ -1687,11 +1687,11 @@ async def submit_qr_lead(request: Request):
     city = (body.get("city") or "").strip()
     state = (body.get("state") or "").strip()
     vehicle_type = (body.get("vehicle_type") or "").strip()
+    campaign_code = (body.get("campaign") or "").strip()
 
     if not name or not mobile or not city or not state or not vehicle_type:
         raise HTTPException(status_code=400, detail="All fields are required")
 
-    # Mobile validation: 10 digits
     import re
     clean_mobile = re.sub(r'\D', '', mobile)
     if len(clean_mobile) < 10:
@@ -1704,13 +1704,23 @@ async def submit_qr_lead(request: Request):
     lead = {
         "id": str(uuid.uuid4()),
         "name": name,
-        "mobile": clean_mobile[-10:],  # last 10 digits
+        "mobile": clean_mobile[-10:],
         "city": city,
         "state": state,
         "vehicle_type": vehicle_type,
-        "source": "QR",
+        "source": "CAMPAIGN_QR" if campaign_code else "QR",
+        "campaign_code": campaign_code or None,
+        "campaign_name": None,
         "created_at": now_ist.isoformat(),
     }
+
+    # Resolve campaign name if campaign_code provided
+    if campaign_code:
+        qr_campaign = await db.qr_campaigns.find_one({"code": campaign_code}, {"_id": 0, "name": 1})
+        if qr_campaign:
+            lead["campaign_name"] = qr_campaign.get("name", campaign_code)
+        else:
+            lead["campaign_name"] = campaign_code
 
     await db.qr_leads.insert_one(lead)
     lead.pop("_id", None)
@@ -1723,11 +1733,13 @@ async def get_qr_leads(
     search: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    campaign_code: Optional[str] = None,
+    source_filter: Optional[str] = None,
     skip: int = 0,
     limit: int = 200,
     current_user: dict = Depends(require_roles("admin"))
 ):
-    """Admin: view all QR leads with search and date filters."""
+    """Admin: view all QR leads with search, date, and campaign filters."""
     from zoneinfo import ZoneInfo
     ist = ZoneInfo("Asia/Kolkata")
     now_ist = datetime.now(ist)
@@ -1744,12 +1756,99 @@ async def get_qr_leads(
         query.setdefault("created_at", {})["$gte"] = date_from
     if date_to:
         query.setdefault("created_at", {})["$lte"] = date_to
+    if campaign_code:
+        query["campaign_code"] = campaign_code
+    if source_filter == "general":
+        query["campaign_code"] = None
+    elif source_filter == "campaign":
+        query["campaign_code"] = {"$ne": None}
 
     leads = await db.qr_leads.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     total = await db.qr_leads.count_documents(query)
     today_count = await db.qr_leads.count_documents({"created_at": {"$gte": today_ist_start.isoformat()}})
 
-    return {"leads": leads, "total": total, "today_count": today_count}
+    # Get list of unique campaign codes for filter dropdown
+    campaign_codes = await db.qr_leads.distinct("campaign_code")
+    campaign_codes = [c for c in campaign_codes if c]
+
+    return {"leads": leads, "total": total, "today_count": today_count, "campaign_codes": campaign_codes}
+
+
+# ========== QR Campaign Management ==========
+
+@api_router.post("/admin/qr-campaigns")
+async def create_qr_campaign(
+    request: Request,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: create a new campaign QR code."""
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    description = (body.get("description") or "").strip()
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Campaign name is required")
+
+    # Use name as code (uppercase, no spaces)
+    import re
+    code = re.sub(r'[^A-Z0-9]', '', name.upper())
+    if not code:
+        raise HTTPException(status_code=400, detail="Campaign name must contain alphanumeric characters")
+
+    # Check uniqueness
+    existing = await db.qr_campaigns.find_one({"code": code})
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Campaign with code '{code}' already exists")
+
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+
+    campaign = {
+        "id": str(uuid.uuid4()),
+        "code": code,
+        "name": name,
+        "description": description,
+        "created_at": datetime.now(ist).isoformat(),
+        "is_active": True,
+    }
+
+    await db.qr_campaigns.insert_one(campaign)
+    campaign.pop("_id", None)
+
+    return {"success": True, "campaign": campaign}
+
+
+@api_router.get("/admin/qr-campaigns")
+async def get_qr_campaigns(
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: list all QR campaigns with lead counts."""
+    campaigns = await db.qr_campaigns.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+    # Get lead counts per campaign
+    pipeline = [
+        {"$match": {"campaign_code": {"$ne": None}}},
+        {"$group": {"_id": "$campaign_code", "count": {"$sum": 1}}}
+    ]
+    counts_raw = await db.qr_leads.aggregate(pipeline).to_list(500)
+    counts_map = {c["_id"]: c["count"] for c in counts_raw}
+
+    for c in campaigns:
+        c["lead_count"] = counts_map.get(c["code"], 0)
+
+    return {"campaigns": campaigns}
+
+
+@api_router.delete("/admin/qr-campaigns/{campaign_id}")
+async def delete_qr_campaign(
+    campaign_id: str,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: delete a QR campaign."""
+    result = await db.qr_campaigns.delete_one({"id": campaign_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return {"success": True, "message": "Campaign deleted"}
 
 # Include the router
 app.include_router(api_router)
