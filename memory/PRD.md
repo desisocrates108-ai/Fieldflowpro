@@ -6,7 +6,7 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ## Tech Stack
 - **Backend**: FastAPI + MongoDB (Motor async driver) + JWT Auth + Pydantic
 - **Frontend**: React + Tailwind CSS + Shadcn UI + React Router
-- **Integrations**: Razorpay (payments), Tesseract.js (OCR), xlsx (Excel export)
+- **Integrations**: Razorpay (payments), Tesseract.js (OCR), xlsx (Excel export), qrcode.react (QR code generation)
 
 ## Credentials
 - Admin: testadmin@fieldflow.com / admin123
@@ -34,39 +34,41 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ### Data Entry System
 - Worker Data Entry: form (name, mobile, city, notes) + own entries table
 - Admin Data Entry: all entries, search/filter by worker/date, Excel export
-- **Today's Entry Count**: Green card showing IST-aware count of today's entries
+- Today's Entry Count: Green card showing IST-aware count
 
-### Branch Management
-- PATCH /api/branches/{branch_id}: Update branch name, address, lat/lng, phone
-- Edit Modal: Prefilled form with all branch fields
-- Actions column: Edit (pencil), Activate (power), Delete (trash)
+### Sold Coupons Page
+- Full sold coupon history with enriched data
+- Decrypted customer phone, worker/branch/campaign names
+- Photo thumbnails, executive summary badges
+- Filters: worker, campaign, branch, date range, Today, search
+- Excel export, stats cards
 
-### Sold Coupons Page (April 14, 2026)
-- **GET /api/admin/sold-coupons**: Full sold coupon history with enriched data
-- Decrypted customer phone numbers, worker/branch/campaign names
-- Photo thumbnails with full-size modal preview
-- Executive Sales Summary badges (worker sold count)
-- Filters: worker, campaign, branch, date range, Today button, search
-- Excel export, stats cards (Total Sold, Sold Today, Active Executives, Revenue)
-- Sidebar navigation: "Sold Coupons" between Coupons and Data Entry
+### QR Lead Capture System (April 22, 2026)
+- **Public Form** at `/qr-lead-form`: Mobile-friendly, FieldFlow Pro branding
+  - Fields: Name, Mobile (10-digit validated), City, State, Vehicle Type (< 160cc / ≥ 160cc)
+  - No login required, success message after submit
+- **Admin QR Leads** at `/admin/qr-leads`:
+  - Stats cards: Total Leads, Today's Leads, Source
+  - Table with all columns, search/date filters
+  - Excel export, Refresh button
+  - Show QR Code dialog with downloadable QR code (PNG)
+- **Backend**: `POST /api/qr-leads` (public), `GET /api/admin/qr-leads` (admin)
+- **DB**: `qr_leads` collection with IST timestamps
 
-### Command Center Dashboard (Fixed April 14, 2026)
+### Command Center Dashboard
 - IST-aware stats: revenue_today, sales_today, active_workers_now, punched_in, etc.
 - Single consolidated endpoint: GET /api/admin/dashboard-stats
-- Auto-refresh every 30 seconds + manual Refresh button
-- bcrypt/passlib compatibility fixed (bcrypt 4.0.1)
+- Auto-refresh + manual Refresh button
 
 ## Key API Endpoints
-- `GET /api/admin/dashboard-stats` - IST-aware stats
-- `GET /api/admin/sold-coupons` - Sold coupons with filters and enriched data
-- `GET /api/admin/coupons` - Merged coupons with decrypted phone + photo
-- `DELETE /api/admin/coupons/{id}?force=true` - Unified delete
-- `GET /api/admin/data-entry` - All worker data entries (with today_count)
-- `POST /api/worker/data-entry` - Worker creates entry
-- `GET /api/worker/data-entry/me` - Worker's own entries
-- `PATCH /api/branches/{branch_id}` - Update branch details
-- `DELETE /api/cre/call-log/{log_id}` - CRE remark delete
-- `POST /api/campaigns/worker-sale` - Worker sale submission
+- `POST /api/qr-leads` — Public, customer lead from QR scan
+- `GET /api/admin/qr-leads` — Admin view with search/date filters
+- `GET /api/admin/dashboard-stats` — IST-aware stats
+- `GET /api/admin/sold-coupons` — Sold coupons with filters
+- `GET /api/admin/coupons` — Merged coupons with decrypted phone
+- `GET /api/admin/data-entry` — Worker data entries (with today_count)
+- `POST /api/campaigns/worker-sale` — Worker sale submission
+- `PATCH /api/branches/{branch_id}` — Update branch details
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
