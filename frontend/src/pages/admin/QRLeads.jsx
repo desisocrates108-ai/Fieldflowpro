@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+const QR_BASE_URL = process.env.REACT_APP_QR_BASE_URL || 'https://fieldflow.servall.in';
 const THEME_COLOR = '#ED1C24';
 
 export default function AdminQRLeads() {
@@ -45,7 +46,7 @@ export default function AdminQRLeads() {
   const generalQrRef = useRef(null);
   const campaignQrRef = useRef(null);
 
-  const generalQrUrl = `${API_URL}/qr-lead-form`;
+  const generalQrUrl = `${QR_BASE_URL}/qr-lead-form`;
   const token = localStorage.getItem('access_token');
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -251,7 +252,7 @@ export default function AdminQRLeads() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {campaigns.map(c => {
-                  const url = `${API_URL}/qr-lead-form?campaign=${c.code}`;
+                  const url = `${QR_BASE_URL}/qr-lead-form?campaign=${c.code}`;
                   return (
                     <Card key={c.id} className="hover:shadow-md transition-shadow" data-testid={`campaign-card-${c.code}`}>
                       <CardContent className="p-5">
@@ -384,9 +385,8 @@ export default function AdminQRLeads() {
               </div>
               <div className="text-center">
                 <p className="font-bold" style={{ color: THEME_COLOR }}>FieldFlow Pro</p>
-                <p className="text-sm text-zinc-500">General Registration</p>
+                <p className="text-sm text-zinc-500">Scan to Register</p>
               </div>
-              <p className="text-xs text-zinc-400 text-center break-all px-4">{generalQrUrl}</p>
             </div>
             <div className="flex gap-2">
               <Button onClick={() => downloadQR(generalQrRef, 'FieldFlow_General_QR.png', 'Scan to Register')}
@@ -407,7 +407,7 @@ export default function AdminQRLeads() {
               <Tag className="h-5 w-5 text-blue-600" /> {campaignQrOpen?.code} QR Code
             </DialogTitle></DialogHeader>
             {campaignQrOpen && (() => {
-              const url = `${API_URL}/qr-lead-form?campaign=${campaignQrOpen.code}`;
+              const url = `${QR_BASE_URL}/qr-lead-form?campaign=${campaignQrOpen.code}`;
               return (
                 <>
                   <div className="flex flex-col items-center gap-4 py-4" ref={campaignQrRef}>
@@ -417,8 +417,8 @@ export default function AdminQRLeads() {
                     <div className="text-center">
                       <p className="font-bold" style={{ color: THEME_COLOR }}>FieldFlow Pro</p>
                       <Badge className="bg-blue-100 text-blue-800 font-mono mt-1">{campaignQrOpen.code}</Badge>
+                      <p className="text-sm text-zinc-500 mt-1">Scan to Register</p>
                     </div>
-                    <p className="text-xs text-zinc-400 text-center break-all px-4">{url}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={() => downloadQR(campaignQrRef, `FieldFlow_${campaignQrOpen.code}_QR.png`, `Campaign: ${campaignQrOpen.code}`)}
