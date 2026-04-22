@@ -1675,6 +1675,82 @@ async def get_my_data_entries(
     
     return {"entries": entries, "total": len(entries)}
 
+# ========== QR Lead Capture (Public) ==========
+
+@api_router.post("/qr-leads")
+async def submit_qr_lead(request: Request):
+    """Public endpoint - no auth required. Captures customer lead from QR scan."""
+    body = await request.json()
+
+    name = (body.get("name") or "").strip()
+    mobile = (body.get("mobile") or "").strip()
+    city = (body.get("city") or "").strip()
+    state = (body.get("state") or "").strip()
+    vehicle_type = (body.get("vehicle_type") or "").strip()
+
+    if not name or not mobile or not city or not state or not vehicle_type:
+        raise HTTPException(status_code=400, detail="All fields are required")
+
+    # Mobile validation: 10 digits
+    import re
+    clean_mobile = re.sub(r'\D', '', mobile)
+    if len(clean_mobile) < 10:
+        raise HTTPException(status_code=400, detail="Valid 10-digit mobile number required")
+
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+
+    lead = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "mobile": clean_mobile[-10:],  # last 10 digits
+        "city": city,
+        "state": state,
+        "vehicle_type": vehicle_type,
+        "source": "QR",
+        "created_at": now_ist.isoformat(),
+    }
+
+    await db.qr_leads.insert_one(lead)
+    lead.pop("_id", None)
+
+    return {"success": True, "message": "Thank you! Your details have been submitted."}
+
+
+@api_router.get("/admin/qr-leads")
+async def get_qr_leads(
+    search: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """Admin: view all QR leads with search and date filters."""
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    today_ist_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    query = {}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"mobile": {"$regex": search, "$options": "i"}},
+            {"city": {"$regex": search, "$options": "i"}},
+        ]
+    if date_from:
+        query.setdefault("created_at", {})["$gte"] = date_from
+    if date_to:
+        query.setdefault("created_at", {})["$lte"] = date_to
+
+    leads = await db.qr_leads.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.qr_leads.count_documents(query)
+    today_count = await db.qr_leads.count_documents({"created_at": {"$gte": today_ist_start.isoformat()}})
+
+    return {"leads": leads, "total": total, "today_count": today_count}
+
 # Include the router
 app.include_router(api_router)
 

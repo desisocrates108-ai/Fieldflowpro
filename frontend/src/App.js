@@ -7,6 +7,7 @@ import "./App.css";
 // Pages
 import LoginPage from "./pages/LoginPage";
 import RedeemCouponPage from "./pages/RedeemCoupon";
+import QRLeadForm from "./pages/QRLeadForm";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -22,6 +23,7 @@ import ApiKeysPage from "./pages/admin/ApiKeys";
 import AdminAttendancePage from "./pages/admin/Attendance";
 import AdminDataEntryPage from "./pages/admin/DataEntry";
 import SoldCouponsPage from "./pages/admin/SoldCoupons";
+import AdminQRLeadsPage from "./pages/admin/QRLeads";
 
 // Worker Pages
 import WorkerDashboard from "./pages/worker/Dashboard";
@@ -111,6 +113,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/redeem" element={<RedeemCouponPage />} />
+      <Route path="/qr-lead-form" element={<QRLeadForm />} />
       
       {/* Root Redirect */}
       <Route path="/" element={<RootRedirect />} />
@@ -217,6 +220,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDataEntryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/qr-leads"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminQRLeadsPage />
           </ProtectedRoute>
         }
       />
