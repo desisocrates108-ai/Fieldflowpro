@@ -6,7 +6,7 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 ## Tech Stack
 - **Backend**: FastAPI + MongoDB (Motor async driver) + JWT Auth + Pydantic
 - **Frontend**: React + Tailwind CSS + Shadcn UI + React Router
-- **Integrations**: Razorpay (payments), Tesseract.js (OCR), xlsx (Excel export), qrcode.react (QR code generation)
+- **Integrations**: Razorpay (payments), Tesseract.js (OCR), xlsx (Excel export), qrcode.react (QR generation)
 
 ## Credentials
 - Admin: testadmin@fieldflow.com / admin123
@@ -25,50 +25,33 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 - CRE Remarks deletable (Admin + CRE RBAC)
 - Worker Photo Gallery + Retake in Sale Coupon
 
-### Admin Coupons (Full View)
-- Merged campaign_coupons + legacy coupons
-- Decrypted phone numbers for admin view
-- Photo thumbnail + full-size modal preview
-- Status/Source filters, Search, Excel export, Delete
+### Sold Coupons Page
+- Full sold coupon history with enriched data, filters, Excel export
 
 ### Data Entry System
-- Worker Data Entry: form (name, mobile, city, notes) + own entries table
-- Admin Data Entry: all entries, search/filter by worker/date, Excel export
-- Today's Entry Count: Green card showing IST-aware count
+- Worker Data Entry + Admin view with today's count + Excel export
 
-### Sold Coupons Page
-- Full sold coupon history with enriched data
-- Decrypted customer phone, worker/branch/campaign names
-- Photo thumbnails, executive summary badges
-- Filters: worker, campaign, branch, date range, Today, search
-- Excel export, stats cards
-
-### QR Lead Capture System (April 22, 2026)
-- **Public Form** at `/qr-lead-form`: Mobile-friendly, FieldFlow Pro branding
-  - Fields: Name, Mobile (10-digit validated), City, State, Vehicle Type (< 160cc / ≥ 160cc)
-  - No login required, success message after submit
-- **Admin QR Leads** at `/admin/qr-leads`:
-  - Stats cards: Total Leads, Today's Leads, Source
-  - Table with all columns, search/date filters
-  - Excel export, Refresh button
-  - Show QR Code dialog with downloadable QR code (PNG)
-- **Backend**: `POST /api/qr-leads` (public), `GET /api/admin/qr-leads` (admin)
-- **DB**: `qr_leads` collection with IST timestamps
+### QR Lead Capture System (Campaign-Based)
+- **General QR**: `/qr-lead-form` — captures leads without campaign
+- **Campaign QR**: `/qr-lead-form?campaign=CODE` — captures leads under specific campaign
+- **Admin Campaign Management** (`/admin/qr-leads` → Campaigns tab):
+  - Create campaigns (name + optional description → auto-generates code)
+  - Campaign cards with QR code preview, download, copy URL, lead count, delete
+- **Admin Leads Data** (`/admin/qr-leads` → Leads tab):
+  - Table with Campaign and Source columns (Campaign/General badges)
+  - Filters: search, campaign dropdown, source filter (General/Campaign), date range
+  - Excel export includes Campaign Name column
+- **Public Form**: Mobile-friendly, FieldFlow Pro branding, shows "Campaign: CODE" badge when applicable
+- **Backend**: `qr_leads` collection (campaign_code, campaign_name, source), `qr_campaigns` collection
+- **Endpoints**:
+  - `POST /api/qr-leads` (public)
+  - `GET /api/admin/qr-leads` (admin, with campaign_code + source_filter params)
+  - `POST /api/admin/qr-campaigns` (admin)
+  - `GET /api/admin/qr-campaigns` (admin, with lead counts)
+  - `DELETE /api/admin/qr-campaigns/{id}` (admin)
 
 ### Command Center Dashboard
-- IST-aware stats: revenue_today, sales_today, active_workers_now, punched_in, etc.
-- Single consolidated endpoint: GET /api/admin/dashboard-stats
-- Auto-refresh + manual Refresh button
-
-## Key API Endpoints
-- `POST /api/qr-leads` — Public, customer lead from QR scan
-- `GET /api/admin/qr-leads` — Admin view with search/date filters
-- `GET /api/admin/dashboard-stats` — IST-aware stats
-- `GET /api/admin/sold-coupons` — Sold coupons with filters
-- `GET /api/admin/coupons` — Merged coupons with decrypted phone
-- `GET /api/admin/data-entry` — Worker data entries (with today_count)
-- `POST /api/campaigns/worker-sale` — Worker sale submission
-- `PATCH /api/branches/{branch_id}` — Update branch details
+- IST-aware stats with auto-refresh + bcrypt fix
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
