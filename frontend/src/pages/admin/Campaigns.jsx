@@ -309,23 +309,24 @@ export default function CampaignsPage() {
     <Layout>
       <div className="space-y-6" data-testid="campaigns-page">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold font-['Barlow_Condensed'] tracking-tight">
               Campaign Management
             </h1>
-            <p className="text-zinc-500 mt-1">Create and manage coupon campaigns</p>
+            <p className="text-zinc-500 text-sm mt-1">Create and manage coupon campaigns</p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => { setLoading(true); fetchCampaigns(); }}>
-              <RefreshCcw className="h-4 w-4 mr-2" />
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => { setLoading(true); fetchCampaigns(); }}>
+              <RefreshCcw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="create-campaign-btn">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Campaign
+                <Button className="bg-blue-600 hover:bg-blue-700" size="sm" data-testid="create-campaign-btn">
+                  <Plus className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Create Campaign</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
@@ -508,6 +509,7 @@ export default function CampaignsPage() {
                 <p className="text-sm text-zinc-400">Create your first campaign to get started</p>
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -586,6 +588,7 @@ export default function CampaignsPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

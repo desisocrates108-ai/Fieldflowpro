@@ -131,20 +131,20 @@ export default function AdminAttendancePage() {
             </h1>
             <p className="text-zinc-500 mt-1">Track worker punch-in/out and working hours</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-40"
+              className="w-36"
               data-testid="attendance-date-picker"
             />
-            <Button variant="outline" onClick={fetchData} disabled={loading}>
-              <RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+              <RefreshCcw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handleExport} disabled={exporting}>
-              <Download className={`h-4 w-4 mr-2 ${exporting ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
+              <Download className={`h-4 w-4 mr-1 ${exporting ? 'animate-spin' : ''}`} />
               Export
             </Button>
           </div>

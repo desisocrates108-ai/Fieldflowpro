@@ -156,16 +156,16 @@ export default function ApiKeysPage() {
     <Layout>
       <div className="space-y-6" data-testid="api-keys-page">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold font-['Barlow_Condensed'] tracking-tight" style={{ color: THEME_COLOR }}>
+            <h1 className="text-2xl sm:text-3xl font-bold font-['Barlow_Condensed'] tracking-tight" style={{ color: THEME_COLOR }}>
               API Key Management
             </h1>
-            <p className="text-zinc-500 mt-1">Manage API keys for external integrations</p>
+            <p className="text-zinc-500 text-sm mt-1">Manage API keys for external integrations</p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => { setLoading(true); fetchApiKeys(); }}>
-              <RefreshCcw className="h-4 w-4 mr-2" />
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => { setLoading(true); fetchApiKeys(); }}>
+              <RefreshCcw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
             <Dialog 
