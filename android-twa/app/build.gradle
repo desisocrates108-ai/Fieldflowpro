@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.fieldflowpro.twa'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.fieldflowpro.twa"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        // TWA host URL - Change this to your production domain when ready
+        manifestPlaceholders = [
+            hostName: "cre-remarks.preview.emergentagent.com",
+            defaultUrl: "https://cre-remarks.preview.emergentagent.com",
+            launcherName: "FieldFlow Pro",
+            assetStatements: '[{ "relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://cre-remarks.preview.emergentagent.com"}}]'
+        ]
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'androidx.browser:browser:1.7.0'
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

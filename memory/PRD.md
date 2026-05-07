@@ -5,7 +5,8 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 
 ## Tech Stack
 - **Backend**: FastAPI + MongoDB (Motor async driver) + JWT Auth + Pydantic
-- **Frontend**: React + Tailwind CSS + Shadcn UI + React Router
+- **Frontend**: React + Tailwind CSS + Shadcn UI + React Router + PWA
+- **Android**: TWA (Trusted Web Activity) wrapper for Play Store
 - **Integrations**: Razorpay (payments), Tesseract.js (OCR), xlsx (Excel export), qrcode.react (QR generation)
 
 ## Credentials
@@ -24,39 +25,48 @@ Build a full-stack field operations management platform ("Field Flow Pro") for m
 - Admin Dashboard with 16 IST-aware stat cards
 - CRE Remarks deletable (Admin + CRE RBAC)
 - Worker Photo Gallery + Retake in Sale Coupon
-
-### Sold Coupons Page
-- Full sold coupon history with enriched data, filters, Excel export
-
-### Data Entry System
-- Worker Data Entry + Admin view with today's count + Excel export
+- Sold Coupons Page with filters + Excel export
+- Data Entry System with today's count
 
 ### QR Lead Capture System (Campaign-Based)
-- **General QR**: `/qr-lead-form` — captures leads without campaign
-- **Campaign QR**: `/qr-lead-form?campaign=CODE` — captures leads under specific campaign
-- **Admin Campaign Management** (`/admin/qr-leads` → Campaigns tab):
-  - Create campaigns (name + optional description → auto-generates code)
-  - Campaign cards with QR code preview, download, copy URL, lead count, delete
-- **Admin Leads Data** (`/admin/qr-leads` → Leads tab):
-  - Table with Campaign and Source columns (Campaign/General badges)
-  - Filters: search, campaign dropdown, source filter (General/Campaign), date range
-  - Excel export includes Campaign Name column
-- **Public Form**: Mobile-friendly, FieldFlow Pro branding, shows "Campaign: CODE" badge when applicable
-- **Backend**: `qr_leads` collection (campaign_code, campaign_name, source), `qr_campaigns` collection
-- **Endpoints**:
-  - `POST /api/qr-leads` (public)
-  - `GET /api/admin/qr-leads` (admin, with campaign_code + source_filter params)
-  - `POST /api/admin/qr-campaigns` (admin)
-  - `GET /api/admin/qr-campaigns` (admin, with lead counts)
-  - `DELETE /api/admin/qr-campaigns/{id}` (admin)
+- General QR + Campaign-specific QR codes
+- Admin campaign management with create/delete/view QR
+- Public mobile-friendly form with campaign detection
+- Leads table with campaign/source filters + Excel export
 
-### Command Center Dashboard
-- IST-aware stats with auto-refresh + bcrypt fix
+### PWA + Android App (April 22, 2026)
+- **manifest.json**: Standalone display, theme color, app icons
+- **Service Worker**: Network-first for API, cache-first for static assets, offline fallback
+- **Meta Tags**: apple-mobile-web-app-capable, theme-color, viewport-fit=cover
+- **Android TWA Project** (`/app/android-twa/`):
+  - Complete Gradle project ready for Android Studio
+  - AndroidManifest.xml with camera/GPS/internet permissions
+  - Splash screen with FieldFlow Pro branding
+  - Digital Asset Links support (assetlinks.json)
+  - README with step-by-step APK build instructions
+
+## Key API Endpoints
+- `POST /api/qr-leads` — Public lead capture
+- `GET /api/admin/qr-leads` — Admin leads with campaign filter
+- `POST /api/admin/qr-campaigns` — Create campaign QR
+- `GET /api/admin/qr-campaigns` — List campaigns with lead counts
+- `GET /api/admin/dashboard-stats` — IST-aware stats
+- `GET /api/admin/sold-coupons` — Sold coupons with filters
+- `POST /api/campaigns/worker-sale` — Worker sale submission
+
+## How to Build APK
+1. Download project from GitHub ("Save to GitHub" in Emergent)
+2. Open `/android-twa` folder in Android Studio
+3. Build → Generate Signed APK
+4. Upload to Google Play Console
+(See `/app/android-twa/README.md` for full guide)
 
 ## Upcoming Tasks (P1)
 - CRE Dashboard Overhaul (Excel-style grid, advanced filters)
 
 ## Future Tasks (P2+)
+- Custom domain setup (fieldflow.servall.in)
 - Live Map (Mapbox), WebSocket real-time updates
+- iOS App Store submission (WKWebView wrapper)
 - DB migration (PostgreSQL), Image storage (S3)
-- Vite migration, PWA, Real SMS (Twilio)
+- Vite migration, Real SMS (Twilio)

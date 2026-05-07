@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.FieldFlowPro" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/navigationBarColor</item>
+    </style>
+
+    <style name="Theme.FieldFlowPro.Splash" parent="Theme.FieldFlowPro">
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+</resources>
