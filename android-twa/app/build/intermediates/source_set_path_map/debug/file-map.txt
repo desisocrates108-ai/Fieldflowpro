@@ -1,0 +1,10 @@
+com.fieldflowpro.twa.app-pngs-0 /app/android-twa/app/build/generated/res/pngs/debug
+com.fieldflowpro.twa.app-resValues-1 /app/android-twa/app/build/generated/res/resValues/debug
+com.fieldflowpro.twa.app-packageDebugResources-2 /app/android-twa/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.fieldflowpro.twa.app-packageDebugResources-3 /app/android-twa/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.fieldflowpro.twa.app-merged_res-4 /app/android-twa/app/build/intermediates/merged_res/debug
+com.fieldflowpro.twa.app-debug-5 /app/android-twa/app/src/debug/res
+com.fieldflowpro.twa.app-main-6 /app/android-twa/app/src/main/res
+com.fieldflowpro.twa.app-core-1.1.0-7 /root/.gradle/caches/transforms-3/21b6518c9f24ca2a9e1a4c849d6380a8/transformed/core-1.1.0/res
+com.fieldflowpro.twa.app-browser-1.7.0-8 /root/.gradle/caches/transforms-3/65a41afe885dbf009cde8baffa00b8c6/transformed/browser-1.7.0/res
+com.fieldflowpro.twa.app-jetified-androidbrowserhelper-2.5.0-9 /root/.gradle/caches/transforms-3/f2f6d980f6ec37de72d223cf74ad2ef6/transformed/jetified-androidbrowserhelper-2.5.0/res

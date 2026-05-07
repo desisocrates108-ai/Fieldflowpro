@@ -1,0 +1,11 @@
+R_DEF: Internal format may change without notice
+local
+color backgroundColor
+color colorAccent
+color colorPrimary
+color colorPrimaryDark
+color navigationBarColor
+drawable splash
+string app_name
+style Theme.FieldFlowPro
+style Theme.FieldFlowPro.Splash

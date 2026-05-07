@@ -1,3 +1,2 @@
-# FieldFlow Pro - Android TWA Settings
 include ':app'
 rootProject.name = "FieldFlowPro"

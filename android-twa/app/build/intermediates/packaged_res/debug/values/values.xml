@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="backgroundColor">#FFFFFF</color>
+    <color name="colorAccent">#ED1C24</color>
+    <color name="colorPrimary">#ED1C24</color>
+    <color name="colorPrimaryDark">#C41920</color>
+    <color name="navigationBarColor">#FFFFFF</color>
+    <string name="app_name">FieldFlow Pro</string>
+    <style name="Theme.FieldFlowPro" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/navigationBarColor</item>
+    </style>
+    <style name="Theme.FieldFlowPro.Splash" parent="Theme.FieldFlowPro">
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+</resources>
