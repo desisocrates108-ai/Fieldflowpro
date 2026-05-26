@@ -313,10 +313,12 @@ export default function SaleCouponPage() {
         latitude: location.latitude,
         longitude: location.longitude,
         gps_accuracy: location.accuracy,
-        payment_mode: paymentMode.toUpperCase(), // CASH or UPI -> QR
+        // Backend expects "CASH" or "QR" (UPI is the user-facing label for QR)
+        payment_mode: paymentMode === 'upi' ? 'QR' : 'CASH',
         ocr_detected_name: ocrDetectedName || null,
         ocr_detected_phone: ocrDetectedPhone || null,
-        ocr_confidence: ocrConfidence || null
+        // ocr_confidence is a float in backend (NOT Optional). Always send a number.
+        ocr_confidence: typeof ocrConfidence === 'number' ? ocrConfidence : 0
       };
       
       if (photo) {
@@ -343,7 +345,14 @@ export default function SaleCouponPage() {
         
         resetSale();
       } else {
-        toast.error(data.detail || 'Failed to complete sale');
+        // data.detail may be a string (HTTPException) or an array (Pydantic 422)
+        let errMsg = 'Failed to complete sale';
+        if (typeof data.detail === 'string') {
+          errMsg = data.detail;
+        } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+          errMsg = data.detail.map(d => `${d.loc?.slice(-1)[0] || 'field'}: ${d.msg}`).join('; ');
+        }
+        toast.error(errMsg);
       }
     } catch (error) {
       toast.error('Failed to submit sale');

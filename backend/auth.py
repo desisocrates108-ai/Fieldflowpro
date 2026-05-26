@@ -19,7 +19,19 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """
+    Verify password against stored hash.
+    Returns False (instead of raising) if hash is malformed or bcrypt is broken.
+    This prevents a corrupted bcrypt installation from causing 500s that block ALL logins.
+    """
+    if not plain_password or not hashed_password:
+        return False
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"verify_password failed: {type(e).__name__}: {e}")
+        return False
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)

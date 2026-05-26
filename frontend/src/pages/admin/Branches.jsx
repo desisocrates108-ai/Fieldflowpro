@@ -17,6 +17,67 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const emptyForm = { name: '', address: '', latitude: '', longitude: '', contact_phone: '' };
 
+// IMPORTANT: BranchForm is defined OUTSIDE the parent component to prevent it
+// from being re-created (and inputs unmounted/remounted) on every parent re-render.
+// Defining it inside caused inputs to lose focus after a single keystroke.
+const BranchForm = ({ data, onChange, onSubmit, onGetLocation, submitLabel, loading: isLoading, locationTarget }) => (
+  <form onSubmit={onSubmit} className="space-y-4">
+    <div className="space-y-2">
+      <Label>Branch Name *</Label>
+      <Input
+        placeholder="Main Branch"
+        value={data.name}
+        onChange={(e) => onChange({ ...data, name: e.target.value })}
+        data-testid="branch-name-input"
+      />
+    </div>
+    <div className="space-y-2">
+      <Label>Address *</Label>
+      <Input
+        placeholder="123 Main Street"
+        value={data.address}
+        onChange={(e) => onChange({ ...data, address: e.target.value })}
+        data-testid="branch-address-input"
+      />
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label>Latitude</Label>
+        <Input
+          type="number" step="any" placeholder="28.6139"
+          value={data.latitude}
+          onChange={(e) => onChange({ ...data, latitude: e.target.value })}
+          data-testid="branch-lat-input"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Longitude</Label>
+        <Input
+          type="number" step="any" placeholder="77.2090"
+          value={data.longitude}
+          onChange={(e) => onChange({ ...data, longitude: e.target.value })}
+          data-testid="branch-lng-input"
+        />
+      </div>
+    </div>
+    <Button type="button" variant="outline" onClick={() => onGetLocation(locationTarget)} className="w-full">
+      <MapPin className="h-4 w-4 mr-2" /> Use Current Location
+    </Button>
+    <div className="space-y-2">
+      <Label>Contact Phone</Label>
+      <Input
+        type="tel" placeholder="+91 98765 43210"
+        value={data.contact_phone}
+        onChange={(e) => onChange({ ...data, contact_phone: e.target.value })}
+        data-testid="branch-phone-input"
+      />
+    </div>
+    <Button type="submit" className="w-full" disabled={isLoading} data-testid="submit-branch-btn">
+      {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : submitLabel}
+    </Button>
+  </form>
+);
+
 export default function BranchesPage() {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -207,64 +268,6 @@ export default function BranchesPage() {
       toast.error('Failed to activate branch');
     }
   };
-
-  const BranchForm = ({ data, onChange, onSubmit, onGetLocation, submitLabel, loading: isLoading, locationTarget }) => (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label>Branch Name *</Label>
-        <Input
-          placeholder="Main Branch"
-          value={data.name}
-          onChange={(e) => onChange({ ...data, name: e.target.value })}
-          data-testid="branch-name-input"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Address *</Label>
-        <Input
-          placeholder="123 Main Street"
-          value={data.address}
-          onChange={(e) => onChange({ ...data, address: e.target.value })}
-          data-testid="branch-address-input"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Latitude</Label>
-          <Input
-            type="number" step="any" placeholder="28.6139"
-            value={data.latitude}
-            onChange={(e) => onChange({ ...data, latitude: e.target.value })}
-            data-testid="branch-lat-input"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Longitude</Label>
-          <Input
-            type="number" step="any" placeholder="77.2090"
-            value={data.longitude}
-            onChange={(e) => onChange({ ...data, longitude: e.target.value })}
-            data-testid="branch-lng-input"
-          />
-        </div>
-      </div>
-      <Button type="button" variant="outline" onClick={() => onGetLocation(locationTarget)} className="w-full">
-        <MapPin className="h-4 w-4 mr-2" /> Use Current Location
-      </Button>
-      <div className="space-y-2">
-        <Label>Contact Phone</Label>
-        <Input
-          type="tel" placeholder="+91 98765 43210"
-          value={data.contact_phone}
-          onChange={(e) => onChange({ ...data, contact_phone: e.target.value })}
-          data-testid="branch-phone-input"
-        />
-      </div>
-      <Button type="submit" className="w-full" disabled={isLoading} data-testid="submit-branch-btn">
-        {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : submitLabel}
-      </Button>
-    </form>
-  );
 
   return (
     <Layout>
