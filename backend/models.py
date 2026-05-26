@@ -560,8 +560,8 @@ class CouponSaleRequest(BaseModel):
     coupon_code: str
     customer_name: str
     customer_phone: str
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     gps_accuracy: Optional[float] = None
     area_id: Optional[str] = None
     photo_url: Optional[str] = None
@@ -909,9 +909,9 @@ class WorkerSaleRequest(BaseModel):
     # Payment mode (CASH or QR)
     payment_mode: str = "CASH"  # CASH or QR
     
-    # Location
-    latitude: float
-    longitude: float
+    # Location (OPTIONAL - sale should not be blocked by GPS)
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     gps_accuracy: Optional[float] = None
     city: Optional[str] = None
     state: Optional[str] = None

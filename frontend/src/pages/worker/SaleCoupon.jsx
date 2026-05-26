@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -8,77 +8,72 @@ import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import Webcam from 'react-webcam';
-import { createWorker } from 'tesseract.js';
 import PaymentQR from '../../components/PaymentQR';
-import { 
-  Ticket, User, Phone, Camera, MapPin, Building2,
-  Loader2, CheckCircle, AlertTriangle, Search,
-  RefreshCcw, History, Eye, ScanLine, ChevronRight, ChevronLeft,
-  QrCode, CreditCard, IndianRupee, Upload, RotateCcw
+import {
+  Ticket, User, Phone, Building2,
+  Loader2, CheckCircle, Search,
+  RefreshCcw, History, ChevronRight, ChevronLeft,
+  QrCode, CreditCard, IndianRupee
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 const THEME_COLOR = '#ED1C24';
 
-// OCR is optional - set to false to disable OCR completely
-const USE_OCR = true;
-
 export default function SaleCouponPage() {
   const [activeTab, setActiveTab] = useState('sale');
-  
-  // 5-Step Sale Process (added Payment step)
+
+  // 4-step sale process (Photo/OCR step removed)
   const [step, setStep] = useState(1);
-  const totalSteps = 5;
-  
+
   // Step 1: Coupon Code
   const [couponCode, setCouponCode] = useState('');
   const [validating, setValidating] = useState(false);
   const [validatedCoupon, setValidatedCoupon] = useState(null);
-  
-  // Step 2: Photo (optional)
-  const [photo, setPhoto] = useState(null);
-  const [photoSource, setPhotoSource] = useState(null); // 'camera' or 'gallery'
-  
-  // Step 3: Customer Details
+
+  // Step 2: Customer Details
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  
-  // Step 4: Branch Selection
+
+  // Step 3: Branch + Payment Mode
   const [selectedBranch, setSelectedBranch] = useState('');
   const [branches, setBranches] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  
-  // Step 5: Payment
-  const [showPayment, setShowPayment] = useState(false);
-  const [saleResult, setSaleResult] = useState(null);
+
+  // Payment
   const [paymentMode, setPaymentMode] = useState('cash'); // 'cash' or 'upi'
-  const [cashAllowed, setCashAllowed] = useState(true); // Worker's cash permission
-  
-  // GPS Location (required)
+  const [cashAllowed, setCashAllowed] = useState(true);
+
+  // GPS Location (OPTIONAL — collected silently in background, NEVER blocks the sale)
   const [location, setLocation] = useState(null);
-  const [locationError, setLocationError] = useState('');
-  
-  // OCR state (optional - non-blocking)
-  const [ocrRunning, setOcrRunning] = useState(false);
-  const [ocrResult, setOcrResult] = useState(null);
-  const [ocrDetectedName, setOcrDetectedName] = useState('');
-  const [ocrDetectedPhone, setOcrDetectedPhone] = useState('');
-  const [ocrConfidence, setOcrConfidence] = useState(0);
-  
+
   // My Sales state
   const [mySales, setMySales] = useState([]);
   const [salesLoading, setSalesLoading] = useState(false);
-  
-  const webcamRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchBranches();
-    getCurrentLocation();
     fetchUserInfo();
+    // Silently attempt GPS — failure is OK
+    collectLocationSilently();
   }, []);
+
+  const collectLocationSilently = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+      },
+      () => {
+        // Silent failure — GPS is optional, sale proceeds without it
+      },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+    );
+  };
 
   const fetchUserInfo = async () => {
     try {
@@ -89,7 +84,6 @@ export default function SaleCouponPage() {
       if (response.ok) {
         const userData = await response.json();
         setCashAllowed(userData.cash_allowed !== false);
-        // If cash is not allowed, default to QR payment
         if (userData.cash_allowed === false) {
           setPaymentMode('upi');
         }
@@ -114,38 +108,11 @@ export default function SaleCouponPage() {
     }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          });
-          if (position.coords.accuracy > 100) {
-            setLocationError('GPS accuracy is low. Please try moving to an open area.');
-          } else {
-            setLocationError('');
-          }
-        },
-        (error) => {
-          setLocationError('Failed to get GPS location. Please enable location services.');
-          toast.error('GPS location required for sale');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    } else {
-      setLocationError('Geolocation not supported by this browser');
-    }
-  };
-
   const validateCouponCode = async () => {
     if (!couponCode.trim()) {
       toast.error('Please enter a coupon code');
       return;
     }
-
     setValidating(true);
     try {
       const token = localStorage.getItem('access_token');
@@ -157,9 +124,7 @@ export default function SaleCouponPage() {
         },
         body: JSON.stringify({ coupon_code: couponCode.trim().toUpperCase() })
       });
-
       const data = await response.json();
-      
       if (response.ok && (data.valid || data.is_valid)) {
         setValidatedCoupon(data);
         toast.success(`Valid coupon: ${data.campaign_name} - ₹${data.campaign_price || data.price}`);
@@ -175,106 +140,8 @@ export default function SaleCouponPage() {
     }
   };
 
-  const capturePhoto = async () => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      setPhoto(imageSrc);
-      setPhotoSource('camera');
-      toast.success('Photo captured');
-      
-      // Run OCR in background (non-blocking)
-      if (USE_OCR && imageSrc) {
-        runOCR(imageSrc);
-      }
-    }
-  };
-
-  const handleGalleryUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageSrc = event.target.result;
-      setPhoto(imageSrc);
-      setPhotoSource('gallery');
-      toast.success('Photo uploaded from gallery');
-      
-      if (USE_OCR && imageSrc) {
-        runOCR(imageSrc);
-      }
-    };
-    reader.readAsDataURL(file);
-    // Reset file input so same file can be selected again
-    e.target.value = '';
-  };
-
-  const handleRetake = () => {
-    setPhoto(null);
-    setPhotoSource(null);
-    setOcrResult(null);
-    setOcrDetectedName('');
-    setOcrDetectedPhone('');
-    setOcrConfidence(0);
-  };
-
-  // OCR runs in background - does NOT block submission
-  const runOCR = async (imageSrc) => {
-    setOcrRunning(true);
-    setOcrResult(null);
-    
-    try {
-      const worker = await createWorker('eng');
-      const { data } = await worker.recognize(imageSrc);
-      await worker.terminate();
-      
-      setOcrResult(data.text);
-      setOcrConfidence(data.confidence);
-      
-      // Try to extract name and phone from OCR text
-      const lines = data.text.split('\n').filter(l => l.trim());
-      
-      let detectedName = '';
-      let detectedPhone = '';
-      
-      for (const line of lines) {
-        const phoneMatch = line.match(/(\d{10})/);
-        if (phoneMatch && !detectedPhone) {
-          detectedPhone = phoneMatch[1];
-        }
-        
-        if (!detectedName && line.length > 3 && /^[a-zA-Z\s]+$/.test(line.trim())) {
-          detectedName = line.trim();
-        }
-      }
-      
-      setOcrDetectedName(detectedName);
-      setOcrDetectedPhone(detectedPhone);
-      
-      if (detectedName && !customerName) {
-        setCustomerName(detectedName);
-      }
-      if (detectedPhone && !customerPhone) {
-        setCustomerPhone(detectedPhone);
-      }
-      
-      if (detectedName || detectedPhone) {
-        toast.info('OCR detected some data - please verify');
-      }
-    } catch (error) {
-      console.error('OCR failed:', error);
-    } finally {
-      setOcrRunning(false);
-    }
-  };
-
   const submitSale = async () => {
-    // Validations - OCR is NOT required
+    // Validations — NO GPS REQUIRED
     if (!validatedCoupon) {
       toast.error('Please validate coupon code first');
       return;
@@ -291,39 +158,23 @@ export default function SaleCouponPage() {
       toast.error('Please select a branch');
       return;
     }
-    if (!location) {
-      toast.error('GPS location is required');
-      getCurrentLocation();
-      return;
-    }
-    if (location.accuracy > 100) {
-      toast.error('GPS accuracy too low. Please try again in an open area.');
-      return;
-    }
 
     setSubmitting(true);
     try {
       const token = localStorage.getItem('access_token');
-      
+
       const payload = {
         coupon_code: couponCode.trim().toUpperCase(),
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         branch_id: selectedBranch,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        gps_accuracy: location.accuracy,
+        // GPS is OPTIONAL — send null if unavailable, NEVER block the sale
+        latitude: location ? location.latitude : null,
+        longitude: location ? location.longitude : null,
+        gps_accuracy: location ? location.accuracy : null,
         // Backend expects "CASH" or "QR" (UPI is the user-facing label for QR)
-        payment_mode: paymentMode === 'upi' ? 'QR' : 'CASH',
-        ocr_detected_name: ocrDetectedName || null,
-        ocr_detected_phone: ocrDetectedPhone || null,
-        // ocr_confidence is a float in backend (NOT Optional). Always send a number.
-        ocr_confidence: typeof ocrConfidence === 'number' ? ocrConfidence : 0
+        payment_mode: paymentMode === 'upi' ? 'QR' : 'CASH'
       };
-      
-      if (photo) {
-        payload.image_base64 = photo;
-      }
 
       const response = await fetch(`${API_URL}/api/campaigns/worker-sale`, {
         method: 'POST',
@@ -338,11 +189,6 @@ export default function SaleCouponPage() {
 
       if (response.ok) {
         toast.success(data.message || 'Coupon sold successfully!');
-        
-        if (data.ocr_mismatch_warning) {
-          toast.warning(data.ocr_mismatch_warning, { duration: 5000 });
-        }
-        
         resetSale();
       } else {
         // data.detail may be a string (HTTPException) or an array (Pydantic 422)
@@ -368,16 +214,9 @@ export default function SaleCouponPage() {
     setCustomerName('');
     setCustomerPhone('');
     setSelectedBranch('');
-    setPhoto(null);
-    setPhotoSource(null);
-    setOcrResult(null);
-    setOcrDetectedName('');
-    setOcrDetectedPhone('');
-    setOcrConfidence(0);
-    setShowPayment(false);
-    setSaleResult(null);
     setPaymentMode('cash');
-    getCurrentLocation();
+    // Refresh location silently for next sale
+    collectLocationSilently();
   };
 
   const fetchMySales = async () => {
@@ -415,12 +254,11 @@ export default function SaleCouponPage() {
   };
 
   const getStepTitle = () => {
-    switch(step) {
+    switch (step) {
       case 1: return 'Step 1: Enter Coupon Code';
-      case 2: return 'Step 2: Capture Photo (Optional)';
-      case 3: return 'Step 3: Customer Details';
-      case 4: return 'Step 4: Select Branch';
-      case 5: return 'Step 5: Payment';
+      case 2: return 'Step 2: Customer Details';
+      case 3: return 'Step 3: Branch & Payment';
+      case 4: return 'Step 4: Payment';
       default: return '';
     }
   };
@@ -460,8 +298,8 @@ export default function SaleCouponPage() {
                     {getStepTitle()}
                   </CardTitle>
                   <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <div 
+                    {[1, 2, 3, 4].map(s => (
+                      <div
                         key={s}
                         className={`w-6 h-2 rounded-full transition-colors ${
                           s <= step ? 'bg-[#ED1C24]' : 'bg-zinc-200'
@@ -472,33 +310,6 @@ export default function SaleCouponPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                
-                {/* GPS Status - Always visible (except payment step) */}
-                {step !== 5 && (
-                <div className="flex items-center gap-2 p-3 bg-zinc-50 rounded-lg border">
-                  <MapPin className={`h-4 w-4 ${location ? 'text-green-600' : 'text-zinc-400'}`} />
-                  {location ? (
-                    <span className="text-sm">
-                      GPS: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} 
-                      <span className={`ml-2 ${location.accuracy <= 100 ? 'text-green-600' : 'text-yellow-600'}`}>
-                        (±{Math.round(location.accuracy)}m)
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="text-sm text-zinc-500">Getting GPS location...</span>
-                  )}
-                  <Button size="sm" variant="ghost" onClick={getCurrentLocation}>
-                    <RefreshCcw className="h-3 w-3" />
-                  </Button>
-                </div>
-                )}
-                
-                {locationError && (
-                  <Alert className="border-yellow-500 bg-yellow-50">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-yellow-800">{locationError}</AlertDescription>
-                  </Alert>
-                )}
 
                 {/* ===== STEP 1: Coupon Code ===== */}
                 {step === 1 && (
@@ -513,7 +324,7 @@ export default function SaleCouponPage() {
                           className="font-mono text-lg h-12"
                           data-testid="coupon-code-input"
                         />
-                        <Button 
+                        <Button
                           onClick={validateCouponCode}
                           disabled={validating || !couponCode.trim()}
                           className="h-12 px-6"
@@ -529,10 +340,9 @@ export default function SaleCouponPage() {
                   </div>
                 )}
 
-                {/* ===== STEP 2: Photo Capture (Optional) ===== */}
+                {/* ===== STEP 2: Customer Details ===== */}
                 {step === 2 && (
                   <div className="space-y-4">
-                    {/* Show validated coupon */}
                     <Alert className="border-green-500 bg-green-50">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <AlertDescription className="text-green-800">
@@ -540,161 +350,6 @@ export default function SaleCouponPage() {
                         <span className="ml-2 font-mono">({couponCode})</span>
                       </AlertDescription>
                     </Alert>
-
-                    {/* Hidden file input for gallery */}
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleGalleryUpload}
-                      data-testid="gallery-file-input"
-                    />
-
-                    <div className="space-y-2">
-                      <Label className="text-base font-semibold flex items-center gap-2">
-                        <Camera className="h-4 w-4" />
-                        Capture Coupon Photo (Optional)
-                      </Label>
-                      <p className="text-sm text-zinc-500">Take a photo or upload from gallery. OCR will auto-fill customer details.</p>
-                      
-                      <div className="border rounded-lg overflow-hidden bg-zinc-100">
-                        {!photo ? (
-                          <div className="relative">
-                            <Webcam
-                              ref={webcamRef}
-                              screenshotFormat="image/jpeg"
-                              className="w-full h-56 object-cover"
-                              videoConstraints={{
-                                facingMode: 'environment',
-                                width: 640,
-                                height: 480
-                              }}
-                            />
-                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-                              <Button 
-                                style={{ backgroundColor: THEME_COLOR }}
-                                onClick={capturePhoto}
-                                data-testid="capture-photo-btn"
-                              >
-                                <Camera className="h-4 w-4 mr-2" />
-                                Capture
-                              </Button>
-                              <Button 
-                                variant="secondary"
-                                onClick={() => fileInputRef.current?.click()}
-                                data-testid="upload-gallery-btn"
-                              >
-                                <Upload className="h-4 w-4 mr-2" />
-                                Gallery
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <img src={photo} alt="Captured" className="w-full h-56 object-cover" />
-                            <div className="absolute top-2 right-2 flex gap-1">
-                              {photoSource === 'gallery' && (
-                                <Badge className="bg-purple-600">
-                                  <Upload className="h-3 w-3 mr-1" />
-                                  Gallery
-                                </Badge>
-                              )}
-                              {photoSource === 'camera' && (
-                                <Badge className="bg-blue-600">
-                                  <Camera className="h-3 w-3 mr-1" />
-                                  Camera
-                                </Badge>
-                              )}
-                              {ocrRunning && (
-                                <Badge className="bg-blue-600">
-                                  <ScanLine className="h-3 w-3 mr-1 animate-pulse" />
-                                  Scanning...
-                                </Badge>
-                              )}
-                              {!ocrRunning && ocrResult && (
-                                <Badge className="bg-green-600">
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  OCR Done
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-                              <Button 
-                                variant="secondary"
-                                onClick={handleRetake}
-                                data-testid="retake-photo-btn"
-                              >
-                                <RotateCcw className="h-4 w-4 mr-2" />
-                                Retake
-                              </Button>
-                              <Button 
-                                variant="secondary"
-                                onClick={() => fileInputRef.current?.click()}
-                                data-testid="reupload-gallery-btn"
-                              >
-                                <Upload className="h-4 w-4 mr-2" />
-                                Upload Different
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* OCR Results */}
-                    {ocrResult && (ocrDetectedName || ocrDetectedPhone) && (
-                      <Alert className="border-blue-500 bg-blue-50">
-                        <Eye className="h-4 w-4 text-blue-600" />
-                        <AlertDescription className="text-blue-800">
-                          <strong>OCR Detected:</strong>
-                          {ocrDetectedName && <span className="ml-2">Name: {ocrDetectedName}</span>}
-                          {ocrDetectedPhone && <span className="ml-2">| Phone: {ocrDetectedPhone}</span>}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
-                    {/* Navigation */}
-                    <div className="flex gap-2 pt-4">
-                      <Button variant="outline" onClick={() => setStep(1)}>
-                        <ChevronLeft className="h-4 w-4 mr-1" /> Back
-                      </Button>
-                      <Button 
-                        onClick={() => setStep(3)}
-                        className="flex-1"
-                        style={{ backgroundColor: THEME_COLOR }}
-                        data-testid="photo-continue-btn"
-                      >
-                        {photo ? 'Continue with Photo' : 'Skip & Continue'}
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ===== STEP 3: Customer Details ===== */}
-                {step === 3 && (
-                  <div className="space-y-4">
-                    {/* Show validated coupon */}
-                    <Alert className="border-green-500 bg-green-50">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-green-800">
-                        <strong>{validatedCoupon?.campaign_name}</strong> - ₹{validatedCoupon?.campaign_price || validatedCoupon?.price}
-                        <span className="ml-2 font-mono">({couponCode})</span>
-                      </AlertDescription>
-                    </Alert>
-
-                    {/* OCR suggestion */}
-                    {(ocrDetectedName || ocrDetectedPhone) && (
-                      <Alert className="border-blue-200 bg-blue-50">
-                        <Eye className="h-4 w-4 text-blue-600" />
-                        <AlertDescription className="text-blue-700 text-sm">
-                          <strong>OCR Suggestion:</strong> 
-                          {ocrDetectedName && <span className="ml-1">Name: "{ocrDetectedName}"</span>}
-                          {ocrDetectedPhone && <span className="ml-1">| Phone: "{ocrDetectedPhone}"</span>}
-                        </AlertDescription>
-                      </Alert>
-                    )}
 
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -727,16 +382,16 @@ export default function SaleCouponPage() {
                       </div>
                     </div>
 
-                    {/* Navigation */}
                     <div className="flex gap-2 pt-4">
-                      <Button variant="outline" onClick={() => setStep(2)}>
+                      <Button variant="outline" onClick={() => setStep(1)}>
                         <ChevronLeft className="h-4 w-4 mr-1" /> Back
                       </Button>
-                      <Button 
-                        onClick={() => setStep(4)}
+                      <Button
+                        onClick={() => setStep(3)}
                         disabled={!customerName.trim() || customerPhone.length < 10}
                         className="flex-1"
                         style={{ backgroundColor: THEME_COLOR }}
+                        data-testid="customer-continue-btn"
                       >
                         Continue <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
@@ -744,8 +399,8 @@ export default function SaleCouponPage() {
                   </div>
                 )}
 
-                {/* ===== STEP 4: Branch Selection & Payment Mode ===== */}
-                {step === 4 && (
+                {/* ===== STEP 3: Branch + Payment Mode + Submit ===== */}
+                {step === 3 && (
                   <div className="space-y-4">
                     {/* Summary */}
                     <div className="p-4 bg-zinc-50 rounded-lg space-y-2">
@@ -788,8 +443,8 @@ export default function SaleCouponPage() {
                             type="button"
                             onClick={() => setPaymentMode('cash')}
                             className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
-                              paymentMode === 'cash' 
-                                ? 'border-[#ED1C24] bg-red-50' 
+                              paymentMode === 'cash'
+                                ? 'border-[#ED1C24] bg-red-50'
                                 : 'border-zinc-200 hover:border-zinc-300'
                             }`}
                             data-testid="payment-cash-btn"
@@ -804,8 +459,8 @@ export default function SaleCouponPage() {
                           type="button"
                           onClick={() => setPaymentMode('upi')}
                           className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
-                            paymentMode === 'upi' 
-                              ? 'border-[#ED1C24] bg-red-50' 
+                            paymentMode === 'upi'
+                              ? 'border-[#ED1C24] bg-red-50'
                               : 'border-zinc-200 hover:border-zinc-300'
                           }`}
                           data-testid="payment-upi-btn"
@@ -823,13 +478,13 @@ export default function SaleCouponPage() {
                       )}
                     </div>
 
-                    {/* Navigation & Next */}
+                    {/* Navigation & Submit */}
                     <div className="flex gap-2 pt-4">
-                      <Button variant="outline" onClick={() => setStep(3)}>
+                      <Button variant="outline" onClick={() => setStep(2)}>
                         <ChevronLeft className="h-4 w-4 mr-1" /> Back
                       </Button>
                       {paymentMode === 'cash' ? (
-                        <Button 
+                        <Button
                           onClick={submitSale}
                           disabled={submitting || !selectedBranch}
                           className="flex-1 h-12 text-lg"
@@ -844,11 +499,12 @@ export default function SaleCouponPage() {
                           Complete Sale (Cash ₹{validatedCoupon?.campaign_price || validatedCoupon?.price})
                         </Button>
                       ) : (
-                        <Button 
-                          onClick={() => setStep(5)}
+                        <Button
+                          onClick={() => setStep(4)}
                           disabled={!selectedBranch}
                           className="flex-1 h-12 text-lg"
                           style={{ backgroundColor: THEME_COLOR }}
+                          data-testid="generate-qr-btn"
                         >
                           <QrCode className="h-5 w-5 mr-2" />
                           Generate Payment QR
@@ -863,29 +519,29 @@ export default function SaleCouponPage() {
                   </div>
                 )}
 
-                {/* ===== STEP 5: UPI Payment with QR ===== */}
-                {step === 5 && (
+                {/* ===== STEP 4: UPI Payment with QR ===== */}
+                {step === 4 && (
                   <div className="space-y-4">
                     <PaymentQR
                       ticketId={validatedCoupon?.coupon_id || couponCode}
                       amount={validatedCoupon?.campaign_price || validatedCoupon?.price}
                       customerName={customerName}
                       customerPhone={customerPhone}
-                      onPaymentSuccess={(data) => {
+                      onPaymentSuccess={() => {
                         toast.success('Payment received! Completing sale...');
                         submitSale();
                       }}
-                      onPaymentFailed={(err) => {
+                      onPaymentFailed={() => {
                         toast.error('Payment failed. You can retry or switch to cash.');
                       }}
                       onCancel={() => {
-                        setStep(4);
+                        setStep(3);
                         setPaymentMode('cash');
                       }}
                     />
-                    
+
                     <div className="flex gap-2 pt-2">
-                      <Button variant="outline" onClick={() => setStep(4)} className="flex-1">
+                      <Button variant="outline" onClick={() => setStep(3)} className="flex-1">
                         <ChevronLeft className="h-4 w-4 mr-1" /> Back to Options
                       </Button>
                     </div>

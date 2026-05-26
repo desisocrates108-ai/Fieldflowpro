@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -6,52 +6,43 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import Webcam from 'react-webcam';
-import { createWorker } from 'tesseract.js';
-import { 
-  Camera, CheckCircle, XCircle, Loader2, MapPin, 
-  Ticket, User, Phone, IndianRupee, AlertCircle,
-  ArrowRight, RefreshCcw, Search
+import {
+  CheckCircle, XCircle, Loader2,
+  Ticket, User, Phone,
+  ArrowRight, Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export default function SellCouponPage() {
-  // Steps: 1=Code Entry, 2=Camera & Details, 3=Confirm, 4=Success
+  // Steps: 1=Code Entry, 2=Customer Details, 3=Confirm, 4=Success
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  
+
   // Step 1: Code validation
   const [couponCode, setCouponCode] = useState('');
   const [validationResult, setValidationResult] = useState(null);
   const [validating, setValidating] = useState(false);
-  
+
   // Step 2: Customer details
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [capturedImage, setCapturedImage] = useState(null);
-  const [ocrProcessing, setOcrProcessing] = useState(false);
-  const [ocrConfidence, setOcrConfidence] = useState(0);
-  
-  // Location
+
+  // Location (collected silently in background — NEVER required)
   const [location, setLocation] = useState(null);
-  const [locationError, setLocationError] = useState(null);
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
-  
+
   // Areas
   const [areas, setAreas] = useState([]);
   const [selectedArea, setSelectedArea] = useState('');
-  
+
   // Result
   const [saleResult, setSaleResult] = useState(null);
-  
-  const webcamRef = useRef(null);
 
-  // Get location on mount
   useEffect(() => {
     fetchAreas();
-    getLocation();
+    collectLocationSilently();
   }, []);
 
   const fetchAreas = async () => {
@@ -69,12 +60,8 @@ export default function SellCouponPage() {
     }
   };
 
-  const getLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported');
-      return;
-    }
-
+  const collectLocationSilently = () => {
+    if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocation({
@@ -82,12 +69,11 @@ export default function SellCouponPage() {
           lng: position.coords.longitude
         });
         setGpsAccuracy(position.coords.accuracy);
-        setLocationError(null);
       },
-      (error) => {
-        setLocationError('Unable to get location. Please enable GPS.');
+      () => {
+        // Silent failure — GPS is optional, sale proceeds without it
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
     );
   };
 
@@ -126,50 +112,7 @@ export default function SellCouponPage() {
     }
   };
 
-  // Capture photo and run OCR
-  const capturePhoto = useCallback(async () => {
-    if (!webcamRef.current) return;
-
-    const imageSrc = webcamRef.current.getScreenshot();
-    setCapturedImage(imageSrc);
-    setOcrProcessing(true);
-
-    try {
-      const worker = await createWorker('eng');
-      const { data } = await worker.recognize(imageSrc);
-      await worker.terminate();
-
-      setOcrConfidence(data.confidence / 100);
-
-      // Try to extract name and phone from OCR text
-      const text = data.text;
-      const lines = text.split('\n').filter(l => l.trim());
-
-      // Look for phone number pattern
-      const phoneMatch = text.match(/[6-9]\d{9}/);
-      if (phoneMatch) {
-        setCustomerPhone(phoneMatch[0]);
-      }
-
-      // First non-phone line could be name
-      for (const line of lines) {
-        const cleaned = line.trim();
-        if (cleaned.length > 2 && !cleaned.match(/\d{10}/) && /[A-Za-z]/.test(cleaned)) {
-          setCustomerName(cleaned);
-          break;
-        }
-      }
-
-      toast.success('Photo captured. Please verify details.');
-    } catch (error) {
-      console.error('OCR failed:', error);
-      toast.info('OCR complete. Please enter details manually.');
-    } finally {
-      setOcrProcessing(false);
-    }
-  }, []);
-
-  // Step 3: Review and confirm
+  // Step 2 → Step 3: Review and confirm (NO GPS REQUIREMENT)
   const proceedToConfirm = () => {
     if (!customerName.trim()) {
       toast.error('Please enter customer name');
@@ -179,19 +122,10 @@ export default function SellCouponPage() {
       toast.error('Please enter valid 10-digit mobile number');
       return;
     }
-    if (!location) {
-      toast.error('Location is required. Please enable GPS.');
-      getLocation();
-      return;
-    }
-    if (gpsAccuracy && gpsAccuracy > 100) {
-      toast.error('GPS accuracy is too low. Please move to open area.');
-      return;
-    }
     setStep(3);
   };
 
-  // Step 4: Complete sale
+  // Step 3 → Step 4: Complete sale
   const completeSale = async () => {
     setLoading(true);
     try {
@@ -206,12 +140,11 @@ export default function SellCouponPage() {
           coupon_code: couponCode.trim().toUpperCase(),
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          latitude: location.lat,
-          longitude: location.lng,
+          // GPS is OPTIONAL — send null when not available
+          latitude: location ? location.lat : null,
+          longitude: location ? location.lng : null,
           gps_accuracy: gpsAccuracy,
-          area_id: selectedArea || null,
-          image_base64: capturedImage,
-          ocr_confidence: ocrConfidence
+          area_id: selectedArea || null
         })
       });
 
@@ -238,10 +171,9 @@ export default function SellCouponPage() {
     setValidationResult(null);
     setCustomerName('');
     setCustomerPhone('');
-    setCapturedImage(null);
-    setOcrConfidence(0);
     setSaleResult(null);
     setSelectedArea('');
+    collectLocationSilently();
   };
 
   return (
@@ -253,7 +185,7 @@ export default function SellCouponPage() {
             Sell Coupon
           </h1>
           <p className="text-zinc-500 mt-1">
-            Enter code, capture photo, confirm sale
+            Enter code, confirm details, complete sale
           </p>
         </div>
 
@@ -319,13 +251,13 @@ export default function SellCouponPage() {
           </Card>
         )}
 
-        {/* Step 2: Camera & Details */}
+        {/* Step 2: Customer Details (camera/OCR step removed) */}
         {step === 2 && (
           <Card data-testid="step-2-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5 text-blue-600" />
-                Capture & Enter Details
+                <User className="h-5 w-5 text-blue-600" />
+                Customer Details
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -341,56 +273,6 @@ export default function SellCouponPage() {
                   </Badge>
                 </div>
               </div>
-
-              {/* Camera */}
-              {!capturedImage ? (
-                <div className="space-y-3">
-                  <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-                    <Webcam
-                      ref={webcamRef}
-                      audio={false}
-                      screenshotFormat="image/jpeg"
-                      videoConstraints={{ facingMode: 'environment' }}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <Button
-                    className="w-full"
-                    onClick={capturePhoto}
-                    disabled={ocrProcessing}
-                    data-testid="capture-photo-btn"
-                  >
-                    {ocrProcessing ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Camera className="h-4 w-4 mr-2" />
-                    )}
-                    {ocrProcessing ? 'Processing...' : 'Capture Photo'}
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="relative rounded-lg overflow-hidden">
-                    <img src={capturedImage} alt="Captured" className="w-full" />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => setCapturedImage(null)}
-                    >
-                      <RefreshCcw className="h-4 w-4 mr-1" />
-                      Retake
-                    </Button>
-                  </div>
-                  {ocrConfidence > 0 && (
-                    <p className="text-xs text-zinc-500">
-                      OCR Confidence: <span className={ocrConfidence > 0.7 ? 'text-green-600' : 'text-yellow-600'}>
-                        {(ocrConfidence * 100).toFixed(0)}%
-                      </span>
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* Customer Details */}
               <div className="space-y-3">
@@ -437,31 +319,10 @@ export default function SellCouponPage() {
                 </Select>
               </div>
 
-              {/* Location Status */}
-              <div className={`p-3 rounded-lg ${location ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                <div className="flex items-center gap-2">
-                  <MapPin className={`h-4 w-4 ${location ? 'text-green-600' : 'text-yellow-600'}`} />
-                  {location ? (
-                    <span className="text-sm text-green-700">
-                      Location captured ({gpsAccuracy?.toFixed(0)}m accuracy)
-                    </span>
-                  ) : (
-                    <span className="text-sm text-yellow-700">
-                      {locationError || 'Getting location...'}
-                    </span>
-                  )}
-                  {!location && (
-                    <Button variant="link" size="sm" onClick={getLocation}>
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </div>
-
               <Button
                 className="w-full bg-blue-600 hover:bg-blue-700"
                 onClick={proceedToConfirm}
-                disabled={!capturedImage || !customerName || !customerPhone}
+                disabled={!customerName || !customerPhone}
                 data-testid="proceed-confirm-btn"
               >
                 Review & Confirm
@@ -511,10 +372,6 @@ export default function SellCouponPage() {
                   </div>
                 )}
               </div>
-
-              {capturedImage && (
-                <img src={capturedImage} alt="Captured" className="w-full rounded-lg" />
-              )}
 
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>

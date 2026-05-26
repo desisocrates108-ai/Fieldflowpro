@@ -439,12 +439,8 @@ async def sell_coupon(
     worker_id = current_user["sub"]
     code = data.coupon_code.upper().strip()
     
-    # Validate GPS accuracy
-    if data.gps_accuracy and data.gps_accuracy > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="GPS accuracy too low. Please move to an area with better signal."
-        )
+    # GPS is OPTIONAL — never block sale due to GPS issues
+    has_location = data.latitude is not None and data.longitude is not None
     
     # Find and validate coupon
     coupon = await db.campaign_coupons.find_one({"code": code}, {"_id": 0})
@@ -470,51 +466,46 @@ async def sell_coupon(
     encrypted_phone = encrypt_mobile(normalized_phone)
     last4 = get_last4_digits(normalized_phone)
     
-    # Check location spoofing (if worker has previous location)
-    last_location = await db.location_logs.find_one(
-        {"worker_id": worker_id},
-        {"_id": 0},
-        sort=[("timestamp", -1)]
-    )
-    
-    if last_location:
-        distance = calculate_haversine_distance(
-            last_location["latitude"], last_location["longitude"],
-            data.latitude, data.longitude
+    # Check location spoofing (only if GPS provided AND worker has previous location) — DOES NOT BLOCK sale
+    if has_location:
+        last_location = await db.location_logs.find_one(
+            {"worker_id": worker_id},
+            {"_id": 0},
+            sort=[("timestamp", -1)]
         )
         
-        time_diff = (datetime.now(timezone.utc) - datetime.fromisoformat(last_location["timestamp"])).total_seconds() / 60
-        
-        # Flag if >50km in <10 minutes
-        if distance > 50 and time_diff < 10:
-            # Log spoofing alert
-            spoofing_alert = {
-                "id": str(uuid.uuid4()),
-                "worker_id": worker_id,
-                "previous_lat": last_location["latitude"],
-                "previous_lng": last_location["longitude"],
-                "current_lat": data.latitude,
-                "current_lng": data.longitude,
-                "distance_km": round(distance, 2),
-                "time_diff_minutes": round(time_diff, 2),
-                "alert_type": "IMPOSSIBLE_TRAVEL",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.location_spoofing_alerts.insert_one(spoofing_alert)
-            
-            await create_audit_log(
-                user_id=worker_id,
-                user_role=current_user["role"],
-                action="LOCATION_SPOOFING_DETECTED",
-                entity="location",
-                metadata=spoofing_alert,
-                request=request
+        if last_location:
+            distance = calculate_haversine_distance(
+                last_location["latitude"], last_location["longitude"],
+                data.latitude, data.longitude
             )
             
-            raise HTTPException(
-                status_code=400,
-                detail=f"Location verification failed. Detected {round(distance, 1)}km movement in {round(time_diff, 1)} minutes."
-            )
+            time_diff = (datetime.now(timezone.utc) - datetime.fromisoformat(last_location["timestamp"])).total_seconds() / 60
+            
+            # Flag if >50km in <10 minutes — log alert but DO NOT block the sale
+            if distance > 50 and time_diff < 10:
+                spoofing_alert = {
+                    "id": str(uuid.uuid4()),
+                    "worker_id": worker_id,
+                    "previous_lat": last_location["latitude"],
+                    "previous_lng": last_location["longitude"],
+                    "current_lat": data.latitude,
+                    "current_lng": data.longitude,
+                    "distance_km": round(distance, 2),
+                    "time_diff_minutes": round(time_diff, 2),
+                    "alert_type": "IMPOSSIBLE_TRAVEL",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.location_spoofing_alerts.insert_one(spoofing_alert)
+                
+                await create_audit_log(
+                    user_id=worker_id,
+                    user_role=current_user["role"],
+                    action="LOCATION_SPOOFING_DETECTED",
+                    entity="location",
+                    metadata=spoofing_alert,
+                    request=request
+                )
     
     # Save photo if provided
     photo_url = data.photo_url
@@ -565,16 +556,17 @@ async def sell_coupon(
         reference_id=coupon["id"]
     )
     
-    # Log location
-    location_log = {
-        "id": str(uuid.uuid4()),
-        "worker_id": worker_id,
-        "latitude": data.latitude,
-        "longitude": data.longitude,
-        "accuracy": data.gps_accuracy,
-        "timestamp": now.isoformat()
-    }
-    await db.location_logs.insert_one(location_log)
+    # Log location (only if GPS provided)
+    if has_location:
+        location_log = {
+            "id": str(uuid.uuid4()),
+            "worker_id": worker_id,
+            "latitude": data.latitude,
+            "longitude": data.longitude,
+            "accuracy": data.gps_accuracy,
+            "timestamp": now.isoformat()
+        }
+        await db.location_logs.insert_one(location_log)
     
     # Audit log
     await create_audit_log(
@@ -646,12 +638,11 @@ async def worker_sale_coupon(
     
     # ===== VALIDATION PHASE =====
     
-    # GPS accuracy check
-    if data.gps_accuracy and data.gps_accuracy > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="GPS accuracy too low (>100m). Please move to an area with better signal."
-        )
+    # GPS is OPTIONAL — only validate if location was actually provided
+    has_location = data.latitude is not None and data.longitude is not None
+    
+    # GPS accuracy check (only if location provided AND accuracy known)
+    # NOTE: We no longer BLOCK sales for low accuracy — just skip storing precise distance checks.
     
     # Validate coupon code
     coupon = await db.campaign_coupons.find_one({"code": code}, {"_id": 0})
@@ -688,92 +679,90 @@ async def worker_sale_coupon(
     encrypted_phone = encrypt_mobile(normalized_phone)
     last4 = get_last4_digits(normalized_phone)
     
-    # ===== LOCATION SPOOFING CHECK =====
-    last_location = await db.location_logs.find_one(
-        {"worker_id": worker_id},
-        {"_id": 0},
-        sort=[("timestamp", -1)]
-    )
-    
-    if last_location:
-        distance = calculate_haversine_distance(
-            last_location["latitude"], last_location["longitude"],
-            data.latitude, data.longitude
+    # ===== LOCATION SPOOFING CHECK (only if GPS provided) =====
+    if has_location:
+        last_location = await db.location_logs.find_one(
+            {"worker_id": worker_id},
+            {"_id": 0},
+            sort=[("timestamp", -1)]
         )
-        time_diff = (datetime.now(timezone.utc) - datetime.fromisoformat(last_location["timestamp"])).total_seconds() / 60
         
-        if distance > 50 and time_diff < 10:
-            spoofing_alert = {
-                "id": str(uuid.uuid4()),
-                "worker_id": worker_id,
-                "previous_lat": last_location["latitude"],
-                "previous_lng": last_location["longitude"],
-                "current_lat": data.latitude,
-                "current_lng": data.longitude,
-                "distance_km": round(distance, 2),
-                "time_diff_minutes": round(time_diff, 2),
-                "alert_type": "IMPOSSIBLE_TRAVEL",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.location_spoofing_alerts.insert_one(spoofing_alert)
+        if last_location:
+            distance = calculate_haversine_distance(
+                last_location["latitude"], last_location["longitude"],
+                data.latitude, data.longitude
+            )
+            time_diff = (datetime.now(timezone.utc) - datetime.fromisoformat(last_location["timestamp"])).total_seconds() / 60
             
-            # Also create fraud alert
-            fraud_alert = {
-                "id": str(uuid.uuid4()),
-                "alert_type": "IMPOSSIBLE_TRAVEL",
-                "worker_id": worker_id,
-                "severity": "HIGH",
-                "details": {
+            if distance > 50 and time_diff < 10:
+                spoofing_alert = {
+                    "id": str(uuid.uuid4()),
+                    "worker_id": worker_id,
+                    "previous_lat": last_location["latitude"],
+                    "previous_lng": last_location["longitude"],
+                    "current_lat": data.latitude,
+                    "current_lng": data.longitude,
                     "distance_km": round(distance, 2),
                     "time_diff_minutes": round(time_diff, 2),
-                    "from_location": f"{last_location['latitude']},{last_location['longitude']}",
-                    "to_location": f"{data.latitude},{data.longitude}"
+                    "alert_type": "IMPOSSIBLE_TRAVEL",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.location_spoofing_alerts.insert_one(spoofing_alert)
+                
+                # Also create fraud alert
+                fraud_alert = {
+                    "id": str(uuid.uuid4()),
+                    "alert_type": "IMPOSSIBLE_TRAVEL",
+                    "worker_id": worker_id,
+                    "severity": "HIGH",
+                    "details": {
+                        "distance_km": round(distance, 2),
+                        "time_diff_minutes": round(time_diff, 2),
+                        "from_location": f"{last_location['latitude']},{last_location['longitude']}",
+                        "to_location": f"{data.latitude},{data.longitude}"
+                    },
+                    "status": "ACTIVE",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.fraud_alerts.insert_one(fraud_alert)
+                # Log the alert but DO NOT block the sale
+    
+    # ===== GPS CLUSTERING CHECK (only if location provided) =====
+    if has_location:
+        time_threshold = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+        tolerance = 0.001  # ~111 meters
+        
+        nearby_sales_count = await db.campaign_coupons.count_documents({
+            "sold_by_worker_id": worker_id,
+            "sold_at": {"$gte": time_threshold},
+            "latitude": {"$gte": data.latitude - tolerance, "$lte": data.latitude + tolerance},
+            "longitude": {"$gte": data.longitude - tolerance, "$lte": data.longitude + tolerance}
+        })
+        
+        if nearby_sales_count >= 5:  # 5+ sales from same spot in 20 mins is suspicious
+            fraud_alert = {
+                "id": str(uuid.uuid4()),
+                "alert_type": "GPS_CLUSTERING",
+                "worker_id": worker_id,
+                "severity": "HIGH" if nearby_sales_count >= 10 else "MEDIUM",
+                "details": {
+                    "sales_count": nearby_sales_count,
+                    "time_window_minutes": 20,
+                    "latitude": data.latitude,
+                    "longitude": data.longitude
                 },
                 "status": "ACTIVE",
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.fraud_alerts.insert_one(fraud_alert)
-            
-            raise HTTPException(
-                status_code=400,
-                detail=f"Location verification failed. Detected {round(distance, 1)}km movement in {round(time_diff, 1)} minutes."
-            )
+            # Don't block the sale, just create the alert
     
-    # ===== GPS CLUSTERING CHECK (Multiple sales from same location in 20 mins) =====
-    time_threshold = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
-    tolerance = 0.001  # ~111 meters
+    # ===== REVERSE GEOCODING (only if GPS provided) =====
+    city = data.city or ""
+    state = data.state or ""
+    area_name = data.area_name or ""
     
-    nearby_sales_count = await db.campaign_coupons.count_documents({
-        "sold_by_worker_id": worker_id,
-        "sold_at": {"$gte": time_threshold},
-        "latitude": {"$gte": data.latitude - tolerance, "$lte": data.latitude + tolerance},
-        "longitude": {"$gte": data.longitude - tolerance, "$lte": data.longitude + tolerance}
-    })
-    
-    if nearby_sales_count >= 5:  # 5+ sales from same spot in 20 mins is suspicious
-        fraud_alert = {
-            "id": str(uuid.uuid4()),
-            "alert_type": "GPS_CLUSTERING",
-            "worker_id": worker_id,
-            "severity": "HIGH" if nearby_sales_count >= 10 else "MEDIUM",
-            "details": {
-                "sales_count": nearby_sales_count,
-                "time_window_minutes": 20,
-                "latitude": data.latitude,
-                "longitude": data.longitude
-            },
-            "status": "ACTIVE",
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.fraud_alerts.insert_one(fraud_alert)
-        # Don't block the sale, just create the alert
-    
-    # ===== REVERSE GEOCODING =====
-    city = data.city
-    state = data.state
-    area_name = data.area_name
-    
-    if not city or not state:
+    if has_location and (not city or not state):
         geo_data = await reverse_geocode(data.latitude, data.longitude)
         city = city or geo_data.get("city", "")
         state = state or geo_data.get("state", "")
@@ -851,19 +840,20 @@ async def worker_sale_coupon(
         payment_mode=payment_mode
     )
     
-    # Log location
-    location_log = {
-        "id": str(uuid.uuid4()),
-        "worker_id": worker_id,
-        "latitude": data.latitude,
-        "longitude": data.longitude,
-        "accuracy": data.gps_accuracy,
-        "city": city,
-        "state": state,
-        "area_name": area_name,
-        "timestamp": now.isoformat()
-    }
-    await db.location_logs.insert_one(location_log)
+    # Log location (only if location was provided)
+    if has_location:
+        location_log = {
+            "id": str(uuid.uuid4()),
+            "worker_id": worker_id,
+            "latitude": data.latitude,
+            "longitude": data.longitude,
+            "accuracy": data.gps_accuracy,
+            "city": city,
+            "state": state,
+            "area_name": area_name,
+            "timestamp": now.isoformat()
+        }
+        await db.location_logs.insert_one(location_log)
     
     # Audit log
     await create_audit_log(
